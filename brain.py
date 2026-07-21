@@ -44,17 +44,27 @@ class Brain:
     # ------------------------------------------------------------------
 
     def is_connected(self):
-        """Verifica si el S25 Ultra está disponible"""
-        try:
-            response = requests.post(
-                self.active_url,
-                data=b"status",
-                headers={"Content-Type": "text/plain; charset=utf-8"},
-                timeout=1.0
-            )
-            return response.status_code == 200
-        except Exception:
-            return False
+        """Verifica si el cerebro está disponible (Ollama local o S25 Ultra)"""
+        from config import BRAIN_URL
+        if "11434" in BRAIN_URL:
+            try:
+                import ollama
+                client = ollama.Client(host=BRAIN_URL)
+                client.list()  # Una llamada simple para verificar conectividad
+                return True
+            except Exception:
+                return False
+        else:
+            try:
+                response = requests.post(
+                    self.active_url,
+                    data=b"status",
+                    headers={"Content-Type": "text/plain; charset=utf-8"},
+                    timeout=1.0
+                )
+                return response.status_code == 200
+            except Exception:
+                return False
 
     # ------------------------------------------------------------------
     # Historial de sesión (corto plazo)
@@ -85,35 +95,69 @@ class Brain:
     # ------------------------------------------------------------------
 
     def _generate(self, prompt, max_retries=2):
-        """MÉTODO 1: MODO TEXTO PURO (Envía el prompt en el body de forma segura)"""
-        import requests
+        """MÉTODO 1: MODO TEXTO PURO (Ollama local o S25 Ultra)"""
         import time
-        for attempt in range(max_retries + 1):
-            try:
-                if attempt > 0:
-                    print(f"🔄 Reintentando Texto ({attempt}/{max_retries})...")
-                    time.sleep(1.5)
-                
-                body_data = prompt.encode('utf-8')
-                headers = {
-                    "Content-Type": "text/plain; charset=utf-8",
-                    "Content-Length": str(len(body_data))
-                }
-                
-                response = requests.post(
-                    self.active_url,
-                    data=body_data,     # Texto puro en el body, perfecto para los cócteles
-                    headers=headers,
-                    timeout=30.0        # Restaurado a 30s para evitar fallas de red
-                )
-                response.raise_for_status() # Lanza error para 4xx/5xx
-                
-                def chunk_generator():
-                    yield response.text
-                return chunk_generator()
-            except requests.exceptions.RequestException as e:
-                print(f"❌ Error Texto en S25 Ultra: {e}")
-                if attempt >= max_retries: break
+        from config import BRAIN_URL
+        
+        # Si la URL apunta a Ollama local (puerto 11434)
+        if "11434" in BRAIN_URL:
+            import ollama
+            print(f"🧠 Generando respuesta localmente con Ollama ({self.model})...")
+            for attempt in range(max_retries + 1):
+                try:
+                    if attempt > 0:
+                        print(f"🔄 Reintentando Ollama ({attempt}/{max_retries})...")
+                        time.sleep(1.5)
+                    
+                    client = ollama.Client(host=BRAIN_URL)
+                    response_stream = client.generate(
+                        model=self.model,
+                        prompt=prompt,
+                        stream=True,
+                        options={
+                            "temperature": 0.7,
+                            "num_ctx": 2048
+                        }
+                    )
+                    
+                    def chunk_generator():
+                        for chunk in response_stream:
+                            yield chunk.get('response', '')
+                            
+                    return chunk_generator()
+                except Exception as e:
+                    print(f"❌ Error con Ollama local: {e}")
+                    if attempt >= max_retries:
+                        break
+        else:
+            # Flujo original para el S25 Ultra (Ktor)
+            import requests
+            for attempt in range(max_retries + 1):
+                try:
+                    if attempt > 0:
+                        print(f"🔄 Reintentando Texto ({attempt}/{max_retries})...")
+                        time.sleep(1.5)
+                    
+                    body_data = prompt.encode('utf-8')
+                    headers = {
+                        "Content-Type": "text/plain; charset=utf-8",
+                        "Content-Length": str(len(body_data))
+                    }
+                    
+                    response = requests.post(
+                        self.active_url,
+                        data=body_data,     # Texto puro en el body, perfecto para los cócteles
+                        headers=headers,
+                        timeout=30.0        # Restaurado a 30s para evitar fallas de red
+                    )
+                    response.raise_for_status() # Lanza error para 4xx/5xx
+                    
+                    def chunk_generator():
+                        yield response.text
+                    return chunk_generator()
+                except requests.exceptions.RequestException as e:
+                    print(f"❌ Error Texto en S25 Ultra: {e}")
+                    if attempt >= max_retries: break
         
         def error_generator(): yield "Lo siento, estoy teniendo problemas para conectarme con mi cerebro."
         return error_generator()

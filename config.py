@@ -27,11 +27,11 @@ BRAIN_MODEL = "llama3.2:latest"
 VISION_MODEL = "llava:latest"
 
 # --- Ollama Híbrido (USB tethering al S25 Ultra) ---
-#LOCAL_OLLAMA_URL = "http://localhost:11434"
+LOCAL_OLLAMA_URL = "http://localhost:11434"
 
 # URLs de los modelos:
-BRAIN_URL = S25_URL            # Cerebro en el S25 Ultra
-VISION_URL = S25_URL           # Moondream en el S25 Ultra
+BRAIN_URL = LOCAL_OLLAMA_URL            # Cerebro local con Ollama
+VISION_URL = LOCAL_OLLAMA_URL           # Visión local con Ollama
 
 
 
@@ -54,8 +54,8 @@ WAKE_PHRASES = [
 # --- Audio / Ear ---
 # ENABLE_BACKEND_MIC = False apaga por completo la escucha en la laptop
 # Toda la escucha se hará nativamente desde el navegador del celular (Brave/Chrome)
-ENABLE_BACKEND_MIC = False
-MICROPHONE_NAME = "Microphone Array (AMD Audio"  # (Ignorado si ENABLE_BACKEND_MIC es False)
+ENABLE_BACKEND_MIC = True
+MICROPHONE_NAME = ""  # (Ignorado si ENABLE_BACKEND_MIC es False)
 LISTEN_TIMEOUT = 5            # Segundos de silencio antes de dejar de escuchar wake word
 COMMAND_TIMEOUT = 10          # Segundos esperando comando después de activarse
 COMMAND_PHRASE_LIMIT = 30     # Máximo de segundos hablando un comando
@@ -116,17 +116,19 @@ ROBOT_ENABLED = True
 ROBOT_CONNECTION_TYPE = "TCP" # "TCP" o "SERIAL"
 # Cambiado a 127.0.0.1 y 8888 para usar el simulador_pi.py localmente.
 # Cambiar de nuevo a "192.168.10.2" y 5001 cuando la Raspberry Pi esté conectada.
-ROBOT_IP = "192.168.25.60"    
+ROBOT_IP = "10.82.5.216"    
 ROBOT_PORT = 5001             
 ROBOT_SERIAL_PORT = "COM3"    # Puerto Serial si es USB Serial
 ROBOT_SERIAL_BAUD = 9600
 
 # --- Configuración Global de la Coctelera (Bombas, Ingredientes y Recetas) ---
+# 'seg' = posición del carro en SEGUNDOS de recorrido de motor desde el origen (0),
+# medidos empíricamente a VELOCIDAD=80 en bartender_pi.py. NO es distancia física en cm.
 BOMBAS_CONFIG = {
-    "pump_1": {"cm": 0.01, "ingrediente": "Refresco de toronja (Witi)"},
-    "pump_2": {"cm": 0.50, "ingrediente": "Jugo de limón"},
-    "pump_3": {"cm": 1.25, "ingrediente": "Tequila"},
-    "pump_4": {"cm": 1.85, "ingrediente": "Licor de naranja"}
+    "pump_1": {"seg": 0.01, "ingrediente": "Refresco de toronja (Witi)"},
+    "pump_2": {"seg": 0.50, "ingrediente": "Jugo de limón"},
+    "pump_3": {"seg": 1.25, "ingrediente": "Tequila"},
+    "pump_4": {"seg": 1.85, "ingrediente": "Licor de naranja"}
 }
 
 RECETAS_COCTELES = {
@@ -189,5 +191,4 @@ def sync_inventario_json():
         print(f"[ERROR] Error sincronizando inventario.json: {e}")
 
 # Sincronizar en caliente al cargar config
-sync_inventario_json()
-
+sync_inventario_json() 

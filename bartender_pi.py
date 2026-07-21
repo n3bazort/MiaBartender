@@ -26,14 +26,20 @@ PUMPS = {
 # Configuración del motor DC
 VELOCIDAD = 80        # 0-100 (duty cycle en %)
 PWM_FREQ = 1000       # Frecuencia del PWM en Hz
-SEGUNDOS_POR_CM = 0.001 # Multiplicador para convertir los Milisegundos a Segundos
+
+# Las posiciones de las bombas (ver BOMBAS_CONFIG en config.py) están definidas
+# directamente en SEGUNDOS de movimiento de motor (medidos empíricamente a VELOCIDAD=80),
+# no en centímetros físicos. FACTOR_CALIBRACION es un multiplicador de ajuste fino:
+# déjalo en 1.0 si tus tiempos medidos ya son exactos. Súbelo (ej. 1.05) si el riel
+# se queda corto, o bájalo (ej. 0.95) si se pasa de la posición.
+FACTOR_CALIBRACION = 1.0
 pwm_motor = None
 
 # ==========================================
 # ESTADO GLOBAL
 # ==========================================
 is_busy = False      # Para evitar que sirva dos bebidas al mismo tiempo
-current_position = 0 # Posición actual en CM
+current_position = 0 # Posición actual, expresada en SEGUNDOS de recorrido de motor desde el origen
 
 # Inicialización de GPIO
 def setup_gpio():
@@ -60,15 +66,15 @@ def detener_motor():
     GPIO.output(PIN_IN2, GPIO.LOW)
     pwm_motor.ChangeDutyCycle(0)
 
-def mover_motor(target_cm):
+def mover_motor(target_seg):
     global current_position
-    if target_cm == current_position:
+    if target_seg == current_position:
         return
         
-    distance = target_cm - current_position
-    tiempo_movimiento = abs(distance) * SEGUNDOS_POR_CM
+    distance = target_seg - current_position
+    tiempo_movimiento = abs(distance) * FACTOR_CALIBRACION
     
-    print(f"⚙️ [MOTOR] Moviendo a {target_cm}cm (Tiempo estimado: {tiempo_movimiento:.2f}s)...")
+    print(f"⚙️ [MOTOR] Moviendo a posición {target_seg}s (Tiempo estimado: {tiempo_movimiento:.2f}s)...")
     
     # Dirección
     if distance > 0:
@@ -89,8 +95,8 @@ def mover_motor(target_cm):
     # Detener motor
     detener_motor()
     
-    current_position = target_cm
-    print(f"⚙️ [MOTOR] Llegó a la posición calculada para {target_cm}cm.")
+    current_position = target_seg
+    print(f"⚙️ [MOTOR] Llegó a la posición calculada para {target_seg}s.")
 
 def servir_bebida_multi_hilo(steps):
     global is_busy
@@ -98,15 +104,15 @@ def servir_bebida_multi_hilo(steps):
         for i, step in enumerate(steps, 1):
             pump_key = step.get('pump')
             amount_ml = step.get('amount_ml', 0)
-            target_cm = step.get('cm', 0.0)
+            target_seg = step.get('seg', step.get('cm', 0.0))  # 'seg' es la clave nueva; 'cm' se acepta por compatibilidad
             
             if amount_ml <= 0:
                 continue
                 
-            print(f"🍹 [PASO {i}/{len(steps)}] Preparando {amount_ml}mL en {pump_key} a {target_cm}cm...")
+            print(f"🍹 [PASO {i}/{len(steps)}] Preparando {amount_ml}mL en {pump_key} a {target_seg}s...")
             
             # 1. Mover el vaso a la posición de la bomba (mover_motor calcula relativo a current_position)
-            mover_motor(target_cm)
+            mover_motor(target_seg)
             time.sleep(0.5) # Pausa para estabilizar
             
             # 2. Encender bomba
@@ -126,7 +132,7 @@ def servir_bebida_multi_hilo(steps):
         time.sleep(1) # Pausa final antes de regresar
         
         # 3. Regresar al origen (Posición 0)
-        print("⚙️ [MOTOR] Regresando a la posición de origen (0cm)...")
+        print("⚙️ [MOTOR] Regresando a la posición de origen (0s)...")
         mover_motor(0)
         
     except Exception as e:
@@ -156,9 +162,9 @@ def prepare_drink():
     if not steps:
         pump_key = data.get('pump')
         amount_ml = data.get('amount_ml', 100)
-        target_cm = data.get('cm', 0)
+        target_seg = data.get('seg', data.get('cm', 0))
         if pump_key:
-            steps = [{"pump": pump_key, "amount_ml": amount_ml, "cm": target_cm}]
+            steps = [{"pump": pump_key, "amount_ml": amount_ml, "seg": target_seg}]
             
     if not steps:
         return jsonify({"error": "No se especificaron pasos o ingredientes"}), 400
