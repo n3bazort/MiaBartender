@@ -125,32 +125,32 @@ ROBOT_SERIAL_BAUD = 9600
 # 'seg' = posición del carro en SEGUNDOS de recorrido de motor desde el origen (0),
 # medidos empíricamente a VELOCIDAD=80 en bartender_pi.py. NO es distancia física en cm.
 BOMBAS_CONFIG = {
-    "pump_1": {"seg": 0.01, "ingrediente": "Refresco de toronja (Witi)"},
-    "pump_2": {"seg": 0.50, "ingrediente": "Jugo de limón"},
-    "pump_3": {"seg": 1.25, "ingrediente": "Tequila"},
-    "pump_4": {"seg": 1.85, "ingrediente": "Licor de naranja"}
+    "pump_1": {"cm": 0.01, "ingrediente": "Refresco de toronja (Witi)"},
+    "pump_2": {"cm": 0.50, "ingrediente": "Jugo de limón"},
+    "pump_3": {"cm": 1.40, "ingrediente": "Tequila"},
+    "pump_4": {"cm": 2.30, "ingrediente": "Licor de naranja"}
 }
 
 RECETAS_COCTELES = {
     "Paloma": {
-        "Tequila": 45,
-        "Refresco de toronja (Witi)": 90,
+        "Tequila": 15,
+        "Refresco de toronja (Witi)": 15,
         "Jugo de limón": 15
     },
     "Margarita con toronja": {
-        "Tequila": 45,
-        "Licor de naranja": 30,
-        "Jugo de limón": 30,
-        "Refresco de toronja (Witi)": 30
+        "Tequila": 15,
+        "Licor de naranja": 15,
+        "Jugo de limón": 15,
+        "Refresco de toronja (Witi)": 20
     },
     "Tequila Citrus": {
-        "Tequila": 45,
-        "Jugo de limón": 30,
-        "Licor de naranja": 30
+        "Tequila": 15,
+        "Jugo de limón": 15,
+        "Licor de naranja": 15
     },
     "Paloma Dulce": {
-        "Tequila": 30,
-        "Refresco de toronja (Witi)": 90,
+        "Tequila": 15,
+        "Refresco de toronja (Witi)": 15,
         "Licor de naranja": 20,
         "Jugo de limón": 10
     }
