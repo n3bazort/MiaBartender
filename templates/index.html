@@ -324,7 +324,17 @@
             <p id="subtitle-text">...</p>
         </div>
 
-        <!-- Eliminados: Botones físicos, todo se maneja por celular nativo -->
+        <!-- Barra de simulación por texto (útil para probar sin micrófono) -->
+        <div id="sim-bar" style="display:flex; gap:8px; margin-top:16px; width:90%; max-width:480px;">
+            <input id="sim-input" type="text" placeholder="Escríbele a MIA (ej. preparame una paloma)"
+                   style="flex:1; padding:12px 14px; border-radius:10px; border:1px solid #444;
+                          background:#111; color:#eee; font-size:15px; outline:none;">
+            <button id="sim-send"
+                    style="padding:12px 18px; border-radius:10px; border:none; cursor:pointer;
+                           background:#00ff88; color:#052; font-weight:bold; font-size:15px;">
+                Enviar
+            </button>
+        </div>
 
         <!-- SOCKET IO -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
@@ -353,6 +363,20 @@
                 statusDot.style.boxShadow = '0 0 8px #ff3366';
                 statusLabel.textContent = 'MIA Desconectada';
                 statusLabel.style.color = '#ff3366';
+            });
+
+            // --- Simulación por texto (modo simulador web) ---
+            const simInput = document.getElementById('sim-input');
+            const simSend = document.getElementById('sim-send');
+            function enviarComandoSimulado() {
+                const txt = simInput.value.trim();
+                if (!txt) return;
+                socket.emit('sim_command', { text: txt });
+                simInput.value = '';
+            }
+            if (simSend) simSend.addEventListener('click', enviarComandoSimulado);
+            if (simInput) simInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') enviarComandoSimulado();
             });
 
 

@@ -1,19 +1,38 @@
-import threading
+# ============================================================
+# MIA - Voz (TTS con edge-tts, reproducción local con mpg123)
+# ============================================================
+# Genera el MP3 con edge-tts (voz natural, gratis) y lo reproduce por el
+# parlante local de la Raspberry Pi con mpg123 (ruta PRINCIPAL).
+#
+# Si el panel web está activo, además emite el MP3 en base64 vía el callback
+# on_audio_ready para que el navegador lo reproduzca y anime el avatar.
+# ============================================================
 import asyncio
-import edge_tts
 import base64
 import os
+import subprocess
+import tempfile
+import threading
 from queue import Queue
 
+import edge_tts
+
+from config import TTS_VOICE, AUDIO_PLAYER_CMD
+
+
 class Voice:
-    """Síntesis de voz usando Edge-TTS — Genera MP3 y emite a la UI"""
+    """Síntesis de voz en un worker de cola. speak() encola, no bloquea."""
 
     def __init__(self):
-        self._speech_queue = Queue()
+        self._queue = Queue()
         self.is_speaking = False
         self._running = True
-        
-        # Callback para emitir el audio Base64 hacia el navegador
+
+        # Reproducción por el parlante local (mpg123). Se puede desactivar en
+        # el simulador web, donde el audio se reproduce solo en el navegador.
+        self.local_playback = True
+
+        # Callback opcional para el panel web: on_audio_ready(texto, audio_b64).
         self.on_audio_ready = None
 
         self._worker = threading.Thread(
@@ -21,69 +40,108 @@ class Voice:
         )
         self._worker.start()
 
+    # ------------------------------------------------------------------
+    # API pública
+    # ------------------------------------------------------------------
+
+    def speak(self, text):
+        """Encola texto para hablar (no bloquea)."""
+        if text and text.strip():
+            self._queue.put(text.strip())
+
+    def wait_until_done(self):
+        """Bloquea hasta que la cola de voz se haya procesado por completo."""
+        self._queue.join()
+
+    def clear_queue(self):
+        """Vacía la cola (para interrupciones)."""
+        with self._queue.mutex:
+            self._queue.queue.clear()
+
+    def stop(self):
+        self._running = False
+        self._queue.put(None)
+
+    # ------------------------------------------------------------------
+    # Worker
+    # ------------------------------------------------------------------
+
+    def _process_queue(self):
+        while self._running:
+            try:
+                text = self._queue.get(timeout=1)
+            except Exception:
+                continue
+            if text is None:
+                self._queue.task_done()
+                break
+            try:
+                self._speak_sync(text)
+            finally:
+                self._queue.task_done()
+
     def _speak_sync(self, text):
-        """Genera el MP3 con Edge-TTS sincrónicamente en memoria (dentro del worker)"""
-        if not text or not text.strip():
-            return
-
         self.is_speaking = True
-        print(f"🔊 MIA dice: {text}")
-
+        print(f"[VOICE] MIA dice: {text}")
         try:
-            communicate = edge_tts.Communicate(text, "es-MX-DaliaNeural")
-            audio_bytes = b""
-            
-            # Streaming en memoria directo de edge-tts
-            async def get_bytes():
-                nonlocal audio_bytes
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        audio_bytes += chunk["data"]
-            
-            asyncio.run(get_bytes())
-            
-            if audio_bytes:
-                audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                # Emitir a la UI (UI se encarga de cambiar los estados del avatar)
-                if self.on_audio_ready:
-                    self.on_audio_ready(text, audio_b64)
-            else:
-                print("⚠️ No se generaron bytes de audio de Edge-TTS.")
-                
+            audio_bytes = self._synthesize(text)
+            if not audio_bytes:
+                print("[VOICE][AVISO] edge-tts no devolvió audio.")
+                return
+
+            # Ruta principal: reproducir localmente por el parlante.
+            if self.local_playback:
+                self._play_local(audio_bytes)
+
+            # Ruta secundaria: emitir al navegador si hay un cliente escuchando.
+            if self.on_audio_ready:
+                audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+                self.on_audio_ready(text, audio_b64)
         except Exception as e:
-            print(f"❌ Error en síntesis de Edge-TTS: {e}")
+            print(f"[VOICE][ERROR] Falló la síntesis/reproducción: {e}")
         finally:
             self.is_speaking = False
 
-    def speak_async(self, text):
-        """Encola el texto para ser procesado sin bloquear"""
-        self._speech_queue.put(text)
-        
-    def clear_queue(self):
-        """Vacía la cola de voz para interrupciones"""
-        with self._speech_queue.mutex:
-            self._speech_queue.queue.clear()
+    @staticmethod
+    def _synthesize(text):
+        """Genera el MP3 en memoria con edge-tts."""
+        async def _run():
+            communicate = edge_tts.Communicate(text, TTS_VOICE)
+            audio = b""
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio += chunk["data"]
+            return audio
+        return asyncio.run(_run())
+
+    @staticmethod
+    def _play_local(audio_bytes):
+        """Reproduce el MP3 con mpg123 desde un archivo temporal."""
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+                tmp.write(audio_bytes)
+                tmp_path = tmp.name
+            subprocess.run(
+                [AUDIO_PLAYER_CMD, "-q", tmp_path],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            print(f"[VOICE][ERROR] '{AUDIO_PLAYER_CMD}' no está instalado "
+                  f"(en la Pi: sudo apt install mpg123).")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
 
-    def wait_until_done(self):
-        """Bloquea hasta que todos los elementos en la cola hayan sido procesados por el worker"""
-        self._speech_queue.join()
-
-    def _process_queue(self):
-        """Thread eterno que procesa la cola"""
-        while self._running:
-            try:
-                text = self._speech_queue.get(timeout=1)
-            except Exception:
-                continue
-
-            if text is None:
-                break
-
-            self._speak_sync(text)
-            self._speech_queue.task_done()
-
-    def stop(self):
-        """Detiene el worker"""
-        self._running = False
-        self._speech_queue.put(None)
+if __name__ == "__main__":
+    # Prueba manual: sintetizar y reproducir una frase.
+    v = Voice()
+    v.speak("Hola, soy MIA, tu bartender. ¿Qué te preparo hoy?")
+    v.wait_until_done()
+    v.stop()

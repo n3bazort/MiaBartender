@@ -1,0 +1,21 @@
+# Secretos y entorno
+.env
+
+# Modelos de wake word de Picovoice (cada quien descarga el suyo)
+*.ppn
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Artefactos en tiempo de ejecución
+pump_config.json
+temp_vision.jpg
+*.mp3
+*.wav
+
+# Restos de arquitectura anterior (memoria vectorial)
+mia_memory/

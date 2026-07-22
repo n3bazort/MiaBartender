@@ -1,7 +1,21 @@
-opencv-python
-ollama
-pyttsx3
-SpeechRecognition
-pyaudio
-numpy
-chromadb
+# ============================================================
+# MIA - Dependencias Python
+# ============================================================
+
+# --- Núcleo del asistente (siempre) ---
+pvporcupine        # Wake word local offline ("Mia")
+pyaudio            # Captura de audio del micrófono
+groq               # STT (Whisper) + LLM (Llama) en la nube
+edge-tts           # Text-to-speech gratuito y natural
+gpiozero           # Control de GPIO (motor L298N + bombas por relé)
+python-dotenv      # Carga de secretos desde .env
+
+# --- Backend GPIO en la Raspberry Pi (NO instalar en Windows/dev) ---
+# gpiozero necesita un backend de pines. En Raspberry Pi OS Bookworm:
+#   pip install rpi-lgpio
+# (En Windows/dev se usa el backend MockFactory, sin dependencia extra.)
+# rpi-lgpio
+
+# --- Panel web opcional (solo si ENABLE_WEB_PANEL=true) ---
+flask
+flask-socketio
