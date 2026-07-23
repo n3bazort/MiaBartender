@@ -63,6 +63,10 @@ else
     aviso "Normal si no estás en una Raspberry Pi."
 fi
 
+# La librería nativa de Vosk viene pidiendo pila ejecutable y los kernels 6.x
+# se niegan a cargarla. Se limpia ese bit o MIA no arranca.
+python arreglar_vosk.py
+
 # ------------------------------------------------------------
 paso "4/7  Modelo de voz offline (palabra 'Mia')"
 # ------------------------------------------------------------

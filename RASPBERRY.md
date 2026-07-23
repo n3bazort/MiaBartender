@@ -467,6 +467,7 @@ cd ~/mia && git pull && sudo systemctl restart mia
 | La Pi no se conecta al WiFi | Solo conoce la red del período **2026-1**. Usa el hotspot con ese mismo nombre y contraseña, o cambia la red sacando la SD (**1.1 C**). |
 | `No module named pyaudio` | `sudo apt install portaudio19-dev && pip install --force-reinstall pyaudio` |
 | Falta el modelo de voz | `.venv/bin/python descargar_modelo.py` |
+| `cannot enable executable stack` al arrancar | La librería de Vosk contra un kernel 6.x. Ejecuta `.venv/bin/python arreglar_vosk.py` |
 | Sale un aviso rojo arriba en la pantalla | Falta el micro o los parlantes. Enchúfalos por USB: el aviso se va solo en unos segundos. |
 | No detecta el micro | `listar_audio.py`. Si no sale, otro puerto USB o revisa `lsusb`. |
 | No se oye nada | `aplay -l` y fija `AUDIO_OUTPUT_DEVICE=hw:X,0` en `.env`. |
