@@ -160,6 +160,30 @@ static/      (carpeta completa)
 
 ---
 
+## 🗣️ Voz de MIA (ElevenLabs para que suene humana)
+
+Por defecto MIA intenta usar **ElevenLabs** (voz muy natural y con emoción). Es
+gratis (~10 min de audio al mes), **acepta gmail y no pide tarjeta**:
+
+1. Crea cuenta en **https://elevenlabs.io**.
+2. Entra a tu perfil → **API Keys** → copia tu clave.
+3. En `.env`:
+   ```
+   TTS_ENGINE=elevenlabs
+   ELEVENLABS_API_KEY=tu_clave_aqui
+   ```
+4. Prueba rápido (genera `prueba_voz.mp3` para escuchar):
+   ```bash
+   python probar_voz.py
+   ```
+
+- ¿Quieres otra voz? Elige una en tu **Voice Library** de ElevenLabs y pon su ID
+  en `ELEVENLABS_VOICE_ID` (en `.env`).
+- **Sin clave / sin crédito**, MIA cae automáticamente a **edge-tts** (gratis, sin
+  cuenta, más robótica). Para forzar edge: `TTS_ENGINE=edge`.
+
+---
+
 ## PASO SIGUIENTE — Cuando ya tengas la Raspberry Pi
 
 La simulación NO toca hardware. Cuando tengas la Pi, tu intervención será:

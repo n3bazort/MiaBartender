@@ -1,23 +1,33 @@
 # ============================================================
-# MIA - Voz (TTS con edge-tts, reproducción local con mpg123)
+# MIA - Voz (TTS configurable: ElevenLabs o edge-tts)
 # ============================================================
-# Genera el MP3 con edge-tts (voz natural, gratis) y lo reproduce por el
-# parlante local de la Raspberry Pi con mpg123 (ruta PRINCIPAL).
+# Genera el MP3 de la voz y lo reproduce por el parlante local de la Raspberry
+# Pi con mpg123 (ruta PRINCIPAL).
+#
+# Motor de voz (config.TTS_ENGINE):
+#   - "elevenlabs": voz muy natural y con emoción (requiere ELEVENLABS_API_KEY).
+#   - "edge":       edge-tts de Microsoft, gratis y sin cuenta (más robótica).
+# Si ElevenLabs falla (sin key, sin crédito o sin red), cae automáticamente a edge.
 #
 # Si el panel web está activo, además emite el MP3 en base64 vía el callback
 # on_audio_ready para que el navegador lo reproduzca y anime el avatar.
 # ============================================================
 import asyncio
 import base64
+import json
 import os
 import subprocess
 import tempfile
 import threading
+import urllib.request
 from queue import Queue
 
 import edge_tts
 
-from config import TTS_VOICE, AUDIO_PLAYER_CMD
+from config import (
+    TTS_ENGINE, TTS_VOICE, AUDIO_PLAYER_CMD,
+    ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL,
+)
 
 
 class Voice:
@@ -27,6 +37,14 @@ class Voice:
         self._queue = Queue()
         self.is_speaking = False
         self._running = True
+
+        # Motor de voz activo. Si se pidió ElevenLabs sin API key, avisa y usa edge.
+        self._engine = TTS_ENGINE
+        if self._engine == "elevenlabs" and not ELEVENLABS_API_KEY:
+            print("[VOICE][AVISO] TTS_ENGINE=elevenlabs pero falta ELEVENLABS_API_KEY. "
+                  "Usando edge-tts. Pon tu clave en .env para la voz natural.")
+            self._engine = "edge"
+        print(f"[VOICE] Motor de voz: {self._engine}")
 
         # Reproducción por el parlante local (mpg123). Se puede desactivar en
         # el simulador web, donde el audio se reproduce solo en el navegador.
@@ -102,9 +120,21 @@ class Voice:
         finally:
             self.is_speaking = False
 
+    def _synthesize(self, text):
+        """Genera el MP3 en memoria con el motor activo (con respaldo a edge-tts)."""
+        if self._engine == "elevenlabs":
+            try:
+                audio = self._synthesize_elevenlabs(text)
+                if audio:
+                    return audio
+                print("[VOICE][AVISO] ElevenLabs no devolvió audio; uso edge-tts.")
+            except Exception as e:
+                print(f"[VOICE][AVISO] Falló ElevenLabs ({e}); uso edge-tts.")
+        return self._synthesize_edge(text)
+
     @staticmethod
-    def _synthesize(text):
-        """Genera el MP3 en memoria con edge-tts."""
+    def _synthesize_edge(text):
+        """Genera el MP3 en memoria con edge-tts (Microsoft, gratis)."""
         async def _run():
             communicate = edge_tts.Communicate(text, TTS_VOICE)
             audio = b""
@@ -113,6 +143,30 @@ class Voice:
                     audio += chunk["data"]
             return audio
         return asyncio.run(_run())
+
+    @staticmethod
+    def _synthesize_elevenlabs(text):
+        """Genera el MP3 en memoria con la API de ElevenLabs (voz natural)."""
+        url = (f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+               f"?output_format=mp3_44100_128")
+        body = json.dumps({
+            "text": text,
+            "model_id": ELEVENLABS_MODEL,
+            # Ajustes de expresividad: algo de variación y estilo para que no sea plana.
+            "voice_settings": {
+                "stability": 0.4,
+                "similarity_boost": 0.8,
+                "style": 0.35,
+                "use_speaker_boost": True,
+            },
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=body, method="POST", headers={
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        })
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read()
 
     @staticmethod
     def _play_local(audio_bytes):

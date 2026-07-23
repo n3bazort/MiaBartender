@@ -60,9 +60,26 @@ COMMAND_PHRASE_LIMIT = 15
 
 
 # ============================================================
-# VOZ (edge-tts + reproducción local con mpg123)
+# VOZ (TTS) — motor configurable
 # ============================================================
-TTS_VOICE = "es-MX-DaliaNeural"   # Voz natural en español (México)
+# "elevenlabs" = voz muy natural y con emoción (capa gratis ~10 min/mes, requiere
+#                cuenta gratuita en https://elevenlabs.io — acepta gmail, sin tarjeta).
+# "edge"       = edge-tts de Microsoft: gratis, sin cuenta, pero más robótica.
+# Si se elige "elevenlabs" pero falta la API key o falla la llamada, cae a "edge".
+TTS_ENGINE = os.getenv("TTS_ENGINE", "elevenlabs").lower()
+
+# --- ElevenLabs ---
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+# ID de la voz. Por defecto "Rachel" (existe en toda cuenta). Puedes elegir otra
+# en tu Voice Library de ElevenLabs y poner su ID aquí (vía .env).
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+# Modelo: eleven_multilingual_v2 = máxima calidad en español.
+# Alternativa: eleven_turbo_v2_5 = más rápido y gasta la mitad de créditos.
+ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
+
+# --- edge-tts (respaldo gratis) ---
+TTS_VOICE = os.getenv("TTS_VOICE", "es-MX-DaliaNeural")   # Voz en español (México)
+
 # Comando de reproducción local del MP3. mpg123 debe estar instalado (apt install mpg123).
 AUDIO_PLAYER_CMD = "mpg123"
 
