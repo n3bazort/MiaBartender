@@ -157,23 +157,34 @@ def handle_voice_command(data):
         # bloqueado en "Procesando..." para siempre.
         try:
             from stt import transcribe
-            socketio.emit("state_update", {"state": "thinking", "text": "Transcribiendo..."})
+
+            # Con micrófono ABIERTO no se muestra NADA todavía: mientras no se
+            # sepa si la nombraron, MIA no debe reaccionar. La transcripción se
+            # hace en segundo plano y la pantalla sigue como si nada.
+            if not requiere_wake:
+                socketio.emit("state_update", {"state": "thinking", "text": "Transcribiendo..."})
+
             text = transcribe(audio_bytes, filename=f"comando.{ext}")
             if not text:
-                socketio.emit("mic_error", {"message": "No te escuché bien, ¿me repites?"})
-                socketio.emit("state_update", {"state": "idle", "text": ""})
+                if not requiere_wake:
+                    socketio.emit("mic_error", {"message": "No te escuché bien, ¿me repites?"})
+                    socketio.emit("state_update", {"state": "idle", "text": ""})
+                else:
+                    socketio.emit("mic_idle", {})
                 return
 
             if requiere_wake:
                 limpio = quitar_wake_word(text)
                 if limpio is None:
-                    # Se habló, pero sin nombrar a MIA: se ignora en silencio para
-                    # que el micrófono abierto no reaccione a la charla del bar.
+                    # Se habló, pero sin nombrar a MIA: se ignora por completo.
+                    # Ni animación, ni subtítulo, ni cambio de estado: para la
+                    # pantalla es como si nadie hubiera hablado.
                     print(f"[SERVER] Sin palabra de activación, ignorado: {text!r}")
-                    socketio.emit("state_update", {"state": "idle", "text": ""})
                     socketio.emit("mic_idle", {})
                     return
+                # Ya sabemos que la nombraron: AHORA sí reacciona.
                 text = limpio or "¿Qué me recomiendas?"
+                socketio.emit("state_update", {"state": "thinking", "text": text})
 
             socketio.emit("user_said", {"text": text})
             mia.handle_text(text)

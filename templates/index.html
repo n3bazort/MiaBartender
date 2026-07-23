@@ -1701,6 +1701,7 @@
         let micHuboVoz = false;
 
         let micWatchdog = null;
+        let micSilencioso = false;   // esperando sin dar señales (modo abierto)
 
         function micMensaje(texto, esError) {
             if (!micHint) return;
@@ -1711,6 +1712,7 @@
         // Libera el micrófono tras una respuesta del servidor.
         function micLibre() {
             micProcesando = false;
+            micSilencioso = false;
             if (micWatchdog) { clearTimeout(micWatchdog); micWatchdog = null; }
             micActualizarBoton();
         }
@@ -1720,6 +1722,9 @@
         // bloqueado en "Procesando…" para siempre.
         function micEsperarRespuesta() {
             micProcesando = true;
+            // En micrófono abierto no se avisa de nada mientras se comprueba si
+            // la nombraron: la pantalla debe seguir igual que si nadie hablara.
+            micSilencioso = micAbierto;
             micActualizarBoton();
             if (micWatchdog) clearTimeout(micWatchdog);
             micWatchdog = setTimeout(() => {
@@ -1734,7 +1739,9 @@
 
         function micActualizarBoton() {
             if (!btnMic) return;          // modo Pi: no hay botón, escucha el wake word
-            const ocupado = micProcesando || isPlaying;
+            // Durante la comprobación silenciosa el botón NO se apaga: apagarlo
+            // ya sería una reacción visible a algo que no iba dirigido a MIA.
+            const ocupado = (micProcesando && !micSilencioso) || isPlaying;
             btnMic.disabled = ocupado && !micGrabando;
             btnMic.classList.toggle('recording', micGrabando);
 
@@ -1742,6 +1749,9 @@
             if (micGrabando) {
                 micMensaje(micAbierto ? 'Di «' + wake + '» y tu pedido' : 'Escuchando… toca para enviar');
             }
+            // micSilencioso: se está comprobando si la nombraron. No se anuncia
+            // nada, el aviso se queda como estaba.
+            else if (micSilencioso) micMensaje('Micrófono abierto — di «' + wake + '»');
             else if (micProcesando) micMensaje('Procesando…');
             else if (isPlaying) micMensaje('MIA está hablando…');
             else micMensaje(micAbierto ? 'Micrófono abierto — di «' + wake + '»' : 'Toca para hablar');
