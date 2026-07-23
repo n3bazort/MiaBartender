@@ -20,7 +20,9 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 
 from assistant import VoiceAssistant
-from config import WEB_PANEL_PORT, MUSIC_DIR, MUSIC_VOLUME, VOICE_VOLUME
+from config import (
+    WEB_PANEL_PORT, MUSIC_DIR, MUSIC_VOLUME, VOICE_VOLUME, BOMBAS_CONFIG,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -90,11 +92,19 @@ def index():
         "/static/music/" + os.path.basename(p)
         for p in sorted(glob.glob(os.path.join(MUSIC_DIR, "*.mp3")))
     ]
+    # Layout de las bombas para dibujar el riel del recorrido del vaso.
+    pumps = [
+        {"pump": k, "seg": v["seg"], "ingrediente": v["ingrediente"]}
+        for k, v in sorted(BOMBAS_CONFIG.items(), key=lambda kv: kv[1]["seg"])
+    ]
+    max_seg = max(v["seg"] for v in BOMBAS_CONFIG.values())
     return render_template(
         "index.html",
         music_tracks=tracks,
         music_volume=MUSIC_VOLUME,
         voice_volume=VOICE_VOLUME,
+        pumps=pumps,
+        max_seg=max_seg,
     )
 
 

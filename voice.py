@@ -165,8 +165,16 @@ class Voice:
             "Content-Type": "application/json",
             "Accept": "audio/mpeg",
         })
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.read()
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            # Mostrar el detalle real de ElevenLabs (clave inválida vs sin permiso, etc.)
+            try:
+                detail = e.read().decode("utf-8", "ignore")[:300]
+            except Exception:
+                detail = ""
+            raise RuntimeError(f"HTTP {e.code} — {detail}") from None
 
     @staticmethod
     def _play_local(audio_bytes):

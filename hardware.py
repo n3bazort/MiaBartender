@@ -71,7 +71,19 @@ class Bartender:
         self.busy = False
         self._lock = threading.Lock()
 
+        # Callback opcional para reportar el progreso físico en tiempo real
+        # (lo usa el panel web para dibujar el recorrido y el llenado del vaso).
+        # Firma: on_event(nombre_evento: str, datos: dict).
+        self.on_event = None
+
         print("[HARDWARE] Bartender inicializado. Bombas apagadas, carro en origen.")
+
+    def _emit(self, event, data):
+        if self.on_event:
+            try:
+                self.on_event(event, data)
+            except Exception as e:
+                print(f"[HARDWARE][AVISO] Falló on_event: {e}")
 
     # ------------------------------------------------------------------
     # Motor
@@ -204,17 +216,52 @@ class Bartender:
                 print(f"[HARDWARE][ERROR] No hay bombas configuradas para '{name}'.")
                 return False
 
+            # Datos del plan para que el panel web dibuje el riel y el llenado.
+            total_ml = sum(s["amount_ml"] for s in steps)
+            max_seg = max([s["seg"] for s in steps] + [max(
+                b["seg"] for b in BOMBAS_CONFIG.values())])
+            self._emit("drink_start", {
+                "coctel": name,
+                "total_ml": total_ml,
+                "max_seg": max_seg,
+                "steps": [{"pump": s["pump"], "ingrediente": s["ingrediente"],
+                           "amount_ml": s["amount_ml"], "seg": s["seg"]} for s in steps],
+            })
+
             print(f"\n[HARDWARE] Preparando '{name}' ({len(steps)} ingredientes)...")
+            servido_ml = 0
             for i, step in enumerate(steps, 1):
                 print(f"[PASO {i}/{len(steps)}] {step['ingrediente']} "
                       f"({step['amount_ml']}mL) en {step['pump']} @ {step['seg']:.2f}s")
+
+                # Emitir el movimiento CON su duración, para que la animación del
+                # vaso vaya sincronizada con el motor real.
+                travel = abs(step["seg"] - self._position_seg) * FACTOR_CALIBRACION
+                self._emit("move", {"to_seg": step["seg"], "max_seg": max_seg,
+                                    "duration": travel, "pump": step["pump"], "index": i - 1})
                 self._move_to(step["seg"])
                 time.sleep(0.5)  # estabilizar antes de servir
+
+                # Emitir el servido: el vaso se llena de servido_ml a servido_ml+amount.
+                pour_time = min(step["amount_ml"] / FLOW_RATE_ML_S, MAX_PUMP_SECONDS)
+                self._emit("pour_start", {
+                    "pump": step["pump"], "ingrediente": step["ingrediente"],
+                    "amount_ml": step["amount_ml"], "duration": pour_time,
+                    "from_ml": servido_ml, "to_ml": servido_ml + step["amount_ml"],
+                    "total_ml": total_ml, "index": i - 1,
+                })
                 self._dispense(step["pump"], step["amount_ml"])
+                servido_ml += step["amount_ml"]
+                self._emit("pour_end", {"pump": step["pump"], "index": i - 1,
+                                        "servido_ml": servido_ml, "total_ml": total_ml})
                 time.sleep(0.5)  # evitar goteo antes de moverse
 
             # Regresar al origen
+            travel = abs(self._position_seg) * FACTOR_CALIBRACION
+            self._emit("move", {"to_seg": 0.0, "max_seg": max_seg,
+                                "duration": travel, "pump": None, "index": -1})
             self._move_to(0.0)
+            self._emit("drink_done", {"coctel": name})
             print(f"[HARDWARE] '{name}' listo. Carro en origen.\n")
             return True
 

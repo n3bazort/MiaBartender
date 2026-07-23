@@ -35,6 +35,10 @@ class VoiceAssistant:
         self.hardware = Bartender()
         self.music = MusicPlayer()
 
+        # Reenviar el progreso físico del hardware al panel web (riel + llenado).
+        if self.socketio:
+            self.hardware.on_event = lambda event, data: self.socketio.emit(event, data)
+
         # El wake word y el grabador solo se crean al arrancar el bucle de voz
         # (start), para que el panel web pueda instanciar MIA sin abrir el micro.
         self.wake = None
