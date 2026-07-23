@@ -9,8 +9,23 @@
 # ============================================================
 import threading
 import time
+import unicodedata
 
 from config import ENABLE_WEB_PANEL
+
+# Frases que activan el cambio de proveedor de voz.
+FRASES_CAMBIAR_VOZ = [
+    "cambia de voz", "cambiar de voz", "cambia la voz", "cambiar la voz",
+    "cambia tu voz", "cambiame la voz", "otra voz", "siguiente voz",
+    "cambia de proveedor", "cambia el proveedor", "cambiar voz",
+]
+
+
+def _normalizar(text):
+    """minúsculas + sin acentos, para comparar comandos de voz."""
+    text = (text or "").lower().strip()
+    text = unicodedata.normalize("NFD", text)
+    return "".join(c for c in text if unicodedata.category(c) != "Mn")
 
 
 class VoiceAssistant:
@@ -75,6 +90,10 @@ class VoiceAssistant:
         if not user_text:
             return
 
+        # Comando especial: cambiar de proveedor de voz (y salir del modo admin).
+        if self._maybe_switch_voice(user_text):
+            return
+
         self.set_state("thinking", data=user_text)
         result = self.brain.respond(user_text)
 
@@ -132,6 +151,42 @@ class VoiceAssistant:
         self.music.stop()
         if self.socketio:
             self.socketio.emit("music_stop")
+
+    def _maybe_switch_voice(self, user_text):
+        """Si el comando pide cambiar de voz, cicla al siguiente proveedor.
+
+        Anuncia el cambio CON la voz nueva y sale del modo admin. Devuelve True
+        si manejó el comando (no debe seguir al cerebro).
+        """
+        norm = _normalizar(user_text)
+        if not any(f in norm for f in FRASES_CAMBIAR_VOZ):
+            return False
+
+        from voice import ENGINE_NAMES
+
+        # Salir del modo admin automáticamente.
+        if getattr(self.brain, "admin_mode", False):
+            self.brain.admin_mode = False
+
+        disponibles = self.voice.available_engines()
+        if len(disponibles) <= 1:
+            nombre = ENGINE_NAMES.get(self.voice.engine, self.voice.engine)
+            msg = (f"Por ahora solo tengo disponible la voz de {nombre}. "
+                   f"Para tener otra, configura la clave de ElevenLabs.")
+            self.set_state("speaking", data=msg)
+            self._speak_blocking(msg)
+            self.set_state("idle")
+            return True
+
+        # Cambiar al siguiente proveedor y anunciarlo YA con la voz nueva.
+        nuevo = self.voice.next_engine()
+        self.voice.set_engine(nuevo)
+        nombre = ENGINE_NAMES.get(nuevo, nuevo)
+        msg = f"Muy bien, desde ahora usaré la voz de {nombre}."
+        self.set_state("speaking", data=msg)
+        self._speak_blocking(msg)
+        self.set_state("idle")
+        return True
 
     def _speak_blocking(self, text):
         """Habla y espera a que termine, manteniendo el anti-eco activo."""

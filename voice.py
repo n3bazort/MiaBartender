@@ -29,6 +29,10 @@ from config import (
     ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL,
 )
 
+# Orden de ciclo de proveedores y sus nombres "hablables".
+ENGINE_ORDER = ["elevenlabs", "edge"]
+ENGINE_NAMES = {"elevenlabs": "ElevenLabs", "edge": "Microsoft"}
+
 
 class Voice:
     """Síntesis de voz en un worker de cola. speak() encola, no bloquea."""
@@ -70,6 +74,33 @@ class Voice:
     def wait_until_done(self):
         """Bloquea hasta que la cola de voz se haya procesado por completo."""
         self._queue.join()
+
+    # ------------------------------------------------------------------
+    # Selección de proveedor de voz (en caliente)
+    # ------------------------------------------------------------------
+
+    def available_engines(self):
+        """Proveedores realmente usables (edge siempre; elevenlabs si hay API key)."""
+        return [e for e in ENGINE_ORDER
+                if e == "edge" or (e == "elevenlabs" and ELEVENLABS_API_KEY)]
+
+    def next_engine(self):
+        """Devuelve el siguiente proveedor disponible al actual (ciclo)."""
+        avail = self.available_engines()
+        if not avail:
+            return self._engine
+        if self._engine not in avail:
+            return avail[0]
+        return avail[(avail.index(self._engine) + 1) % len(avail)]
+
+    def set_engine(self, engine):
+        """Cambia el proveedor de voz en caliente."""
+        self._engine = engine
+        print(f"[VOICE] Motor de voz cambiado a: {engine}")
+
+    @property
+    def engine(self):
+        return self._engine
 
     def clear_queue(self):
         """Vacía la cola (para interrupciones)."""
