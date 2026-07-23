@@ -45,6 +45,8 @@ BANNER = """
      recomiendame algo
      preparame un mojito        (no está en el menú)
      cuanto es 2 + 2?           (fuera de tema: lo rechaza)
+     mia modo admin, explicame como funcionas   (modo desarrollador)
+     mia admin fuera            (vuelve al modo bar)
   Escribe 'salir' para terminar.
 ============================================================
 """

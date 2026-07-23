@@ -14,18 +14,33 @@
 #     que el prompt se respete.
 # ============================================================
 import json
+import re
+import unicodedata
 
 from groq import Groq
 
 from config import (
-    GROQ_API_KEY, GROQ_LLM_MODEL,
+    GROQ_API_KEY, GROQ_LLM_MODEL, GROQ_STT_MODEL,
     LLM_TEMPERATURE, LLM_MAX_TOKENS,
     MAX_HISTORY_TURNS, MIA_SYSTEM_PROMPT,
     RECETAS_COCTELES, BOMBAS_CONFIG,
+    TTS_VOICE, PUMP_PINS, FLOW_RATE_ML_S, MAX_PUMP_SECONDS,
+    PIN_MOTOR_IN1, PIN_MOTOR_IN2, PIN_MOTOR_ENA,
 )
 
 ACCIONES_VALIDAS = {"preparar", "responder", "no_disponible", "fuera_de_tema"}
 EMOCIONES_VALIDAS = {"feliz", "guino", "pensando", "risa", "neutral"}
+
+# --- Frases para entrar/salir del MODO ADMIN (desarrollador) ---
+# Se comprueba SALIR antes que ENTRAR (para no confundir "sal del modo admin").
+FRASES_SALIR_ADMIN = [
+    "admin fuera", "fuera admin", "modo bar", "sal del modo admin",
+    "salir del modo admin", "sal de admin", "desactiva el modo admin",
+    "quita el modo admin", "cierra el modo admin",
+]
+FRASES_ENTRAR_ADMIN = [
+    "modo admin", "modo administrador", "modo desarrollador", "admin mode",
+]
 
 
 class Brain:
@@ -35,6 +50,9 @@ class Brain:
         self._client = Groq(api_key=GROQ_API_KEY)
         self._history = []   # [{"role": "user"/"assistant", "content": ...}]
         self._menu_context = self._build_menu_context()
+        # Modo administrador/desarrollador: cuando está activo, MIA puede explicar
+        # su propia arquitectura técnica (fuera de la restricción "solo bar").
+        self.admin_mode = False
         print(f"[BRAIN] Groq listo (modelo {GROQ_LLM_MODEL}).")
 
     # ------------------------------------------------------------------
@@ -55,6 +73,70 @@ class Brain:
         )
 
     # ------------------------------------------------------------------
+    # Modo administrador (desarrollador)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize(text):
+        """minúsculas + sin acentos, para comparar frases de activación."""
+        text = (text or "").lower().strip()
+        text = unicodedata.normalize("NFD", text)
+        return "".join(c for c in text if unicodedata.category(c) != "Mn")
+
+    def _detect_admin_toggle(self, user_text):
+        """Devuelve 'enter', 'exit' o None según las frases de modo admin."""
+        norm = self._normalize(user_text)
+        if any(p in norm for p in FRASES_SALIR_ADMIN):
+            return "exit"
+        if any(p in norm for p in FRASES_ENTRAR_ADMIN):
+            return "enter"
+        return None
+
+    @staticmethod
+    def _strip_admin_trigger(user_text):
+        """Quita la muletilla de activación para dejar la pregunta real."""
+        cleaned = user_text
+        for phrase in ["mia", "modo administrador", "modo desarrollador",
+                       "modo admin", "admin mode"]:
+            cleaned = re.sub(phrase, "", cleaned, flags=re.IGNORECASE)
+        return cleaned.strip(" ,.:;-–").strip()
+
+    def _admin_prompt(self):
+        """System prompt del modo admin: datos técnicos REALES desde la config."""
+        pines_bombas = ", ".join(f"{k}=GPIO{v}" for k, v in PUMP_PINS.items())
+        return (
+            "Eres MIA en MODO ADMINISTRADOR (desarrollador). En este modo, además "
+            "de seguir siendo bartender, PUEDES explicar tu propia arquitectura "
+            "técnica con total transparencia y de forma didáctica. Habla en español.\n\n"
+            "FORMATO: responde SIEMPRE con un ÚNICO objeto JSON con las claves "
+            '"accion", "coctel", "mensaje", "dato_curioso", "emocion". Para '
+            'explicaciones técnicas usa accion="responder" y coctel=null; pon la '
+            'explicación en "mensaje". Si te piden preparar un cóctel del menú, '
+            'sigues usando accion="preparar" con normalidad.\n\n'
+            "DATOS TÉCNICOS REALES DE TU SISTEMA (explícalos si te preguntan cómo "
+            "funcionas, dónde está tu cerebro, qué servicios usas, cómo te conectas "
+            "a la Raspberry Pi o cómo controlas las bombas):\n"
+            f"- Corres como UN SOLO proceso en Python sobre una Raspberry Pi 3.\n"
+            f"- Palabra de activación ('Mia'): se detecta LOCALMENTE y sin internet "
+            f"con Porcupine (Picovoice).\n"
+            f"- Tu oído (voz→texto / STT): modelo Whisper '{GROQ_STT_MODEL}' en la "
+            f"NUBE de Groq.\n"
+            f"- Tu cerebro (razonamiento / LLM): modelo '{GROQ_LLM_MODEL}' (familia "
+            f"Llama) en la NUBE de Groq, respondiendo en JSON.\n"
+            f"- Tu voz (texto→voz / TTS): edge-tts de Microsoft (voz '{TTS_VOICE}'), "
+            f"reproducida localmente con mpg123.\n"
+            f"- Control físico: librería gpiozero. Un motor DC con driver L298N "
+            f"(pines GPIO IN1={PIN_MOTOR_IN1}, IN2={PIN_MOTOR_IN2}, ENA={PIN_MOTOR_ENA}) "
+            f"mueve el vaso entre las bombas.\n"
+            f"- 4 bombas por relé (activos en LOW): {pines_bombas}.\n"
+            f"- Los tiempos de cada bomba NO los decide el LLM: se calculan de la "
+            f"receta (mililitros ÷ caudal de {FLOW_RATE_ML_S} mL/s) con un límite de "
+            f"seguridad de {MAX_PUMP_SECONDS} s por bomba.\n"
+            "- No guardas memoria a largo plazo: solo un historial corto en RAM.\n\n"
+            "Sé claro y concreto. Si no sabes un detalle, dilo; no inventes."
+        )
+
+    # ------------------------------------------------------------------
     # Historial corto (en memoria, sin base de datos)
     # ------------------------------------------------------------------
 
@@ -70,7 +152,32 @@ class Brain:
 
     def respond(self, user_text):
         """Devuelve un dict validado {accion, coctel, mensaje, dato_curioso, emocion}."""
-        system_content = f"{MIA_SYSTEM_PROMPT}\n\n=== MENÚ ACTUAL ===\n{self._menu_context}"
+        # --- Conmutación de MODO ADMIN (antes de llamar al LLM) ---
+        toggle = self._detect_admin_toggle(user_text)
+        if toggle == "exit":
+            self.admin_mode = False
+            self._history.clear()
+            print("[BRAIN] MODO ADMIN desactivado.")
+            return {
+                "accion": "responder", "coctel": None,
+                "mensaje": "Modo administrador desactivado. Vuelvo a ser tu bartender "
+                           "y solo hablo de cócteles. ¿Qué te preparo?",
+                "dato_curioso": None, "emocion": "guino",
+            }
+        if toggle == "enter":
+            self.admin_mode = True
+            print("[BRAIN] MODO ADMIN activado.")
+            # Quitar la muletilla para dejar la pregunta real (si la hay).
+            user_text = self._strip_admin_trigger(user_text)
+            if not user_text:
+                user_text = ("Confirma que entraste en modo administrador y explícame "
+                             "de forma breve cómo funcionas y qué puedo preguntarte aquí.")
+
+        # --- Elegir el system prompt según el modo ---
+        if self.admin_mode:
+            system_content = self._admin_prompt()
+        else:
+            system_content = f"{MIA_SYSTEM_PROMPT}\n\n=== MENÚ ACTUAL ===\n{self._menu_context}"
 
         messages = [{"role": "system", "content": system_content}]
         messages.extend(self._history)

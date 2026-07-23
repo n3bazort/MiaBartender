@@ -59,6 +59,13 @@ hardware es simulado** (se imprime lo que harían el motor y las bombas).
    | `recomiendame algo` | MIA recomienda del menú |
    | `preparame un mojito` | MIA se disculpa (no está en el menú) y ofrece otro |
    | `cuanto es 2 mas 2?` | MIA lo **rechaza** (fuera de tema) |
+   | `mia modo admin, explicame como funcionas` | Entra en **modo desarrollador** y te explica su arquitectura |
+   | `mia admin fuera` | Sale del modo admin y vuelve a ser solo bartender |
+
+   > **Modo administrador:** al decir "**mia modo admin**" MIA desbloquea
+   > información técnica y te explica dónde está su cerebro (Groq), qué servicios
+   > usa, cómo se conecta a la Raspberry Pi y cómo controla las bombas. Para salir
+   > di "**mia admin fuera**" y vuelve a las restricciones de solo bar.
 
 4. Escribe `salir` para terminar.
 
