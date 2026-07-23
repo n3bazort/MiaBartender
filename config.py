@@ -68,6 +68,21 @@ AUDIO_PLAYER_CMD = "mpg123"
 
 
 # ============================================================
+# MÚSICA DE ESPERA (suena MIENTRAS se dispensa la bebida — Opción A)
+# ============================================================
+# Opción A ("por turnos"): MIA habla su frase y su dato curioso primero; luego,
+# mientras el motor y las bombas trabajan en silencio, suena la música de espera;
+# al terminar, la música para y MIA anuncia que la bebida está lista.
+MUSIC_ENABLED = os.getenv("MUSIC_ENABLED", "true").lower() in ("1", "true", "yes")
+# Carpeta con los .mp3 de espera (servida también por el panel web en /static/music).
+MUSIC_DIR = os.path.join(os.path.dirname(__file__), "static", "music")
+# Volumen inicial de la música (0.0 - 1.0). En el panel web se ajusta en vivo.
+MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.4"))
+# Volumen inicial de la voz de MIA en el navegador (0.0 - 1.0). Opcional.
+VOICE_VOLUME = float(os.getenv("VOICE_VOLUME", "1.0"))
+
+
+# ============================================================
 # PANEL WEB (OPCIONAL — pesado para la Pi 3, apagado por defecto)
 # ============================================================
 # Con True se arranca el servidor Flask-SocketIO (avatar animado en el navegador).

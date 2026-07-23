@@ -13,11 +13,14 @@ import sys
 import threading
 import time
 
+import glob
+import os
+
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 
 from assistant import VoiceAssistant
-from config import WEB_PANEL_PORT
+from config import WEB_PANEL_PORT, MUSIC_DIR, MUSIC_VOLUME, VOICE_VOLUME
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -82,7 +85,17 @@ def handle_sim_command(data):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # Lista de pistas de música disponibles (para el reproductor del navegador).
+    tracks = [
+        "/static/music/" + os.path.basename(p)
+        for p in sorted(glob.glob(os.path.join(MUSIC_DIR, "*.mp3")))
+    ]
+    return render_template(
+        "index.html",
+        music_tracks=tracks,
+        music_volume=MUSIC_VOLUME,
+        voice_volume=VOICE_VOLUME,
+    )
 
 
 @socketio.on("request_state")

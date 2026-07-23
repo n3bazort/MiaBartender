@@ -92,6 +92,22 @@ y **la escuchas hablar** (el audio se reproduce en el navegador).
    **Enviar**. Verás el avatar cambiar de estado (PENSANDO → PREPARANDO) y oirás
    la voz de MIA. La secuencia de bombas se imprime en la consola.
 
+### 🎵 Música de espera y controles de volumen
+
+Cuando MIA prepara un cóctel, **suena música de espera** mientras las bombas
+sirven (y se detiene al terminar). En la interfaz web tienes:
+
+- **🔊 Botón de silencio (mute)** de la música.
+- **Slider "Música"**: volumen de la música de espera (en vivo).
+- **Slider "Voz"**: volumen de la voz de MIA.
+
+Puedes cambiar las pistas poniendo tus propios `.mp3` en la carpeta
+`static/music/` (se eligen al azar). Valores por defecto en `.env`
+(`MUSIC_VOLUME`, `VOICE_VOLUME`, `MUSIC_ENABLED`).
+
+> En la Raspberry Pi real (modo voz, sin panel), la música suena por el parlante
+> con `mpg123`; su volumen inicial se fija con `MUSIC_VOLUME` en `.env`.
+
 ---
 
 ## OPCIÓN C — Probar en una plataforma web (Replit) sin instalar nada

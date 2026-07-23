@@ -94,6 +94,7 @@ def main():
             # 2. Si toca preparar, se ejecuta la secuencia (simulada)
             if result["accion"] == "preparar" and result["coctel"]:
                 print("  🍹 [Simulando dispensado físico...]")
+                print("  🎵 [Aquí sonaría la música de espera mientras se sirve]")
                 bar.preparar(result["coctel"])
                 print(f"  ✅ MIA: ¡Tu {result['coctel']} está listo! Disfrútalo.\n")
 

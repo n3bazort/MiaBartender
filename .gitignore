@@ -16,6 +16,9 @@ pump_config.json
 temp_vision.jpg
 *.mp3
 *.wav
+# ...pero la música de espera SÍ se versiona:
+!static/music/
+!static/music/*.mp3
 
 # Restos de arquitectura anterior (memoria vectorial)
 mia_memory/

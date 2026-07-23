@@ -28,10 +28,12 @@ class VoiceAssistant:
         from voice import Voice
         from brain import Brain
         from hardware import Bartender
+        from music import MusicPlayer
 
         self.voice = Voice()
         self.brain = Brain()
         self.hardware = Bartender()
+        self.music = MusicPlayer()
 
         # El wake word y el grabador solo se crean al arrancar el bucle de voz
         # (start), para que el panel web pueda instanciar MIA sin abrir el micro.
@@ -88,23 +90,44 @@ class VoiceAssistant:
         if accion == "preparar" and coctel:
             self.set_state("preparing_drink", data=coctel)
 
-            # Dispensar en un hilo aparte para poder hablar el dato curioso
-            # MIENTRAS se sirve la bebida.
+            # Dispensar en un hilo aparte.
             dispense_thread = threading.Thread(
                 target=self.hardware.preparar, args=(coctel,), daemon=True
             )
             dispense_thread.start()
 
+            # OPCIÓN A (por turnos): primero MIA habla su dato curioso (sin música),
             if dato:
                 self._speak_blocking(dato)
 
-            dispense_thread.join()
+            # ...y luego, si la bebida sigue sirviéndose, suena la música de espera
+            # para rellenar el silencio hasta que termine el dispensado.
+            if dispense_thread.is_alive():
+                self._music_start()
+                dispense_thread.join()
+                self._music_stop()
+            else:
+                dispense_thread.join()
 
             cierre = f"¡Tu {coctel} está listo! Disfrútalo."
             self.set_state("speaking", data=cierre)
             self._speak_blocking(cierre)
 
         self.set_state("idle")
+
+    def _music_start(self):
+        """Arranca la música de espera: parlante local (Pi) y/o navegador (web)."""
+        # Parlante local solo si esta instancia reproduce audio localmente (Pi real).
+        if self.voice.local_playback:
+            self.music.start()
+        # Navegador: avisar al panel web para que reproduzca la música.
+        if self.socketio:
+            self.socketio.emit("music_start")
+
+    def _music_stop(self):
+        self.music.stop()
+        if self.socketio:
+            self.socketio.emit("music_stop")
 
     def _speak_blocking(self, text):
         """Habla y espera a que termine, manteniendo el anti-eco activo."""
@@ -187,6 +210,7 @@ class VoiceAssistant:
         self.is_running = False
         if self.wake:
             self.wake.stop()
+        self.music.stop()
         self.voice.stop()
         if self.wake:
             self.wake.cleanup()

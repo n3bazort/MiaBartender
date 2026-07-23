@@ -336,6 +336,34 @@
             </button>
         </div>
 
+        <!-- Reproductor de música de espera (suena mientras se dispensa) -->
+        <audio id="bg-music" loop preload="auto"></audio>
+
+        <!-- Controles de audio: música (mute + volumen) y voz (volumen) -->
+        <div id="audio-controls"
+             style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+                    gap:14px; margin-top:14px; width:90%; max-width:480px; padding:10px 14px;
+                    background:#111; border:1px solid #333; border-radius:12px; font-size:13px; color:#bbb;">
+            <button id="music-mute" title="Silenciar música"
+                    style="background:#222; color:#eee; border:1px solid #444; border-radius:8px;
+                           padding:8px 12px; cursor:pointer; font-size:16px;">🔊</button>
+            <label style="display:flex; align-items:center; gap:6px;">
+                🎵 Música
+                <input id="music-vol" type="range" min="0" max="100" step="1" style="width:90px;">
+            </label>
+            <label style="display:flex; align-items:center; gap:6px;">
+                🗣️ Voz
+                <input id="voice-vol" type="range" min="0" max="100" step="1" style="width:90px;">
+            </label>
+        </div>
+
+        <!-- Datos de audio inyectados por el servidor (pistas y volúmenes) -->
+        <script>
+            window.MIA_MUSIC_TRACKS = {{ music_tracks|tojson if music_tracks is defined else '[]' }};
+            window.MIA_MUSIC_VOLUME = {{ music_volume if music_volume is defined else 0.4 }};
+            window.MIA_VOICE_VOLUME = {{ voice_volume if voice_volume is defined else 1.0 }};
+        </script>
+
         <!-- SOCKET IO -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
@@ -377,6 +405,61 @@
             if (simSend) simSend.addEventListener('click', enviarComandoSimulado);
             if (simInput) simInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') enviarComandoSimulado();
+            });
+
+            // --- Música de espera + controles de volumen ---
+            const bgMusic = document.getElementById('bg-music');
+            const musicMuteBtn = document.getElementById('music-mute');
+            const musicVol = document.getElementById('music-vol');
+            const voiceVol = document.getElementById('voice-vol');
+
+            // Volumen de la voz (aplicado a cada fragmento de audio de MIA).
+            let voiceVolume = (typeof window.MIA_VOICE_VOLUME === 'number') ? window.MIA_VOICE_VOLUME : 1.0;
+
+            // Inicializar controles con los valores del servidor.
+            const initMusicVol = (typeof window.MIA_MUSIC_VOLUME === 'number') ? window.MIA_MUSIC_VOLUME : 0.4;
+            if (bgMusic) bgMusic.volume = initMusicVol;
+            if (musicVol) musicVol.value = Math.round(initMusicVol * 100);
+            if (voiceVol) voiceVol.value = Math.round(voiceVolume * 100);
+
+            function pickRandomTrack() {
+                const tracks = window.MIA_MUSIC_TRACKS || [];
+                if (!tracks.length) return null;
+                return tracks[Math.floor(Math.random() * tracks.length)];
+            }
+
+            socket.on('music_start', () => {
+                if (!bgMusic) return;
+                const track = pickRandomTrack();
+                if (!track) return;
+                bgMusic.src = track;
+                bgMusic.play().catch(e => console.warn('No se pudo iniciar la música:', e));
+            });
+
+            socket.on('music_stop', () => {
+                if (!bgMusic) return;
+                bgMusic.pause();
+                bgMusic.currentTime = 0;
+            });
+
+            // Botón de mute de la música.
+            if (musicMuteBtn) musicMuteBtn.addEventListener('click', () => {
+                if (!bgMusic) return;
+                bgMusic.muted = !bgMusic.muted;
+                musicMuteBtn.textContent = bgMusic.muted ? '🔇' : '🔊';
+            });
+
+            // Slider de volumen de la música (en vivo).
+            if (musicVol) musicVol.addEventListener('input', () => {
+                if (bgMusic) bgMusic.volume = musicVol.value / 100;
+            });
+
+            // Slider de volumen de la voz (se aplica al audio en curso y a los siguientes).
+            if (voiceVol) voiceVol.addEventListener('input', () => {
+                voiceVolume = voiceVol.value / 100;
+                if (typeof currentAudio !== 'undefined' && currentAudio) {
+                    currentAudio.volume = voiceVolume;
+                }
             });
 
 
@@ -734,6 +817,7 @@
                 // Pre-cargar y decodificar el objeto Audio inmediatamente en memoria
                 const audioObj = new Audio("data:audio/mp3;base64," + audioB64);
                 audioObj.preload = "auto";
+                audioObj.volume = voiceVolume;  // volumen de voz ajustable
 
                 // Lo encolamos ya instanciado para reproducirse sin delay
                 audioQueue.push({ audio: audioObj, text: text, emotion: currentEmotion });
