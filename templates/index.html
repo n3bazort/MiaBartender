@@ -824,6 +824,32 @@
 
         .mic-hint.error { color: #b91c1c; }
 
+        /* Aviso ancho con la frase de ejemplo (modo micrófono abierto) */
+        /* Ancho FIJO, no max-width: al estar posicionado en absoluto, el
+           espacio libre a su derecha es de apenas unos píxeles y el texto se
+           colapsaba en una tira vertical. */
+        .mic-hint.ejemplo {
+            white-space: normal;
+            width: 260px;
+            text-align: left;
+            line-height: 1.4;
+            padding: 10px 18px;
+        }
+
+        .mic-hint .ej-frase {
+            display: block;
+            color: var(--ink);
+            font-weight: 700;
+        }
+
+        .mic-hint .ej-nota {
+            display: block;
+            margin-top: 3px;
+            font-size: .88em;
+            font-weight: 500;
+            color: var(--ink-faint);
+        }
+
         /* --- Interruptor deslizante: Pulsar / Abierto --- */
         .mode-switch {
             position: absolute;
@@ -1706,7 +1732,20 @@
         function micMensaje(texto, esError) {
             if (!micHint) return;
             micHint.textContent = texto;
+            micHint.classList.remove('ejemplo');
             micHint.classList.toggle('error', !!esError);
+        }
+
+        // Aviso del micrófono abierto: una frase de ejemplo lista para copiar,
+        // más el recordatorio de nombrarla en CADA frase (no basta una vez).
+        function micMensajeEjemplo() {
+            if (!micHint) return;
+            const wake = window.MIA_WAKE_WORD || 'Mia';
+            micHint.innerHTML =
+                '<span class="ej-frase">Di: «' + wake + ', ¿qué me puedes ofrecer?»</span>' +
+                '<span class="ej-nota">Empieza cada frase con «' + wake + '» para activarla</span>';
+            micHint.classList.add('ejemplo');
+            micHint.classList.remove('error');
         }
 
         // Libera el micrófono tras una respuesta del servidor.
@@ -1745,16 +1784,17 @@
             btnMic.disabled = ocupado && !micGrabando;
             btnMic.classList.toggle('recording', micGrabando);
 
-            const wake = window.MIA_WAKE_WORD || 'Mia';
-            if (micGrabando) {
-                micMensaje(micAbierto ? 'Di «' + wake + '» y tu pedido' : 'Escuchando… toca para enviar');
+            // Con el micrófono abierto siempre se ve el ejemplo: es la única
+            // pista de que hay que nombrarla, y hace falta en cada frase.
+            if (micAbierto && !isPlaying) {
+                micMensajeEjemplo();
+                return;
             }
-            // micSilencioso: se está comprobando si la nombraron. No se anuncia
-            // nada, el aviso se queda como estaba.
-            else if (micSilencioso) micMensaje('Micrófono abierto — di «' + wake + '»');
+
+            if (micGrabando) micMensaje('Escuchando… toca para enviar');
             else if (micProcesando) micMensaje('Procesando…');
             else if (isPlaying) micMensaje('MIA está hablando…');
-            else micMensaje(micAbierto ? 'Micrófono abierto — di «' + wake + '»' : 'Toca para hablar');
+            else micMensaje('Toca para hablar');
         }
 
         function elegirMimeType() {
