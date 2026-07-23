@@ -230,6 +230,54 @@ def index():
     )
 
 
+# ------------------------------------------------------------------
+# Vigilancia del audio (solo en la Pi: micro y parlantes USB)
+# ------------------------------------------------------------------
+# En modo web el audio lo pone el navegador, así que no hay nada que vigilar.
+_audio_estado = {"ok": True}
+
+
+def _revisar_audio():
+    """Relee el estado del audio y lo devuelve (sin emitir)."""
+    global _audio_estado
+    if WEB_MIC_MODE:
+        return {"ok": True, "web": True}
+    try:
+        from audio_devices import audio_status
+        _audio_estado = audio_status()
+    except Exception as e:
+        _audio_estado = {"ok": False, "mic": False, "altavoz": False,
+                         "mensaje": "No se pudo comprobar el audio",
+                         "detalle": str(e)}
+    return _audio_estado
+
+
+def _vigilar_audio():
+    """Avisa a la pantalla cuando cambia el estado del audio.
+
+    Sirve para el momento de montar la Pi: enchufas el micro USB y el aviso
+    desaparece solo, sin tener que recargar la tablet.
+    """
+    anterior = None
+    while True:
+        estado = _revisar_audio()
+        firma = (estado.get("mic"), estado.get("altavoz"))
+        if firma != anterior:
+            anterior = firma
+            socketio.emit("audio_status", estado)
+            if not estado.get("ok"):
+                print(f"[AUDIO][AVISO] {estado.get('mensaje')} — {estado.get('detalle')}")
+            else:
+                print(f"[AUDIO] Micrófono: {estado.get('mic_nombre')} | "
+                      f"Parlantes: {estado.get('altavoz_nombre')}")
+        socketio.sleep(15)
+
+
+@socketio.on("request_audio_status")
+def handle_request_audio_status():
+    socketio.emit("audio_status", _revisar_audio())
+
+
 @socketio.on("request_state")
 def handle_request_state():
     if mia:
@@ -274,6 +322,10 @@ def run(web_mic=None):
     backend = threading.Thread(target=_start_mia_backend, daemon=True)
     backend.start()
     time.sleep(1)
+
+    # En la Pi, vigilar que el micro y los parlantes USB sigan ahí.
+    if not WEB_MIC_MODE:
+        socketio.start_background_task(_vigilar_audio)
 
     entrada = "micrófono del NAVEGADOR" if WEB_MIC_MODE else "micrófono LOCAL + wake word 'Mia'"
     print("\n" + "=" * 56)

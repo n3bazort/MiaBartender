@@ -121,7 +121,11 @@ Conecta los dos y comprueba que se ven:
 ```
 
 Te dice qué micrófono va a usar MIA. **No hay que configurar nada:** detecta
-sola el micro USB. Si eligiera el equivocado, fija el índice en `.env`:
+sola el micro USB.
+
+> La pantalla de la Pi **avisa sola** si falta el micrófono o los parlantes:
+> sale un aviso rojo arriba. Comprueba cada 15 segundos, así que al
+> enchufar el USB desaparece solo, sin recargar la tablet. Si eligiera el equivocado, fija el índice en `.env`:
 
 ```
 MIC_DEVICE_INDEX=1
@@ -265,6 +269,7 @@ cd ~/mia && git pull && sudo systemctl restart mia
 | No entra por SSH | ¿Pi y laptop en la **misma** red? Prueba con la IP en vez de `raspberrypi.local`. |
 | `No module named pyaudio` | `sudo apt install portaudio19-dev && pip install --force-reinstall pyaudio` |
 | Falta el modelo de voz | `.venv/bin/python descargar_modelo.py` |
+| Sale un aviso rojo arriba en la pantalla | Falta el micro o los parlantes. Enchúfalos por USB: el aviso se va solo en unos segundos. |
 | No detecta el micro | `listar_audio.py`. Si no sale, otro puerto USB o revisa `lsusb`. |
 | No se oye nada | `aplay -l` y fija `AUDIO_OUTPUT_DEVICE=hw:X,0` en `.env`. |
 | No reacciona a "Mia" | Habla más cerca y claro. Añade variantes en `.env`: `VOSK_WAKE_VARIANTS=mia,mía,mía mía` |

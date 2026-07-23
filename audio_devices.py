@@ -114,6 +114,57 @@ def alsa_output_hint():
     return ""
 
 
+def audio_status():
+    """Estado del audio para avisar en la pantalla de la Raspberry Pi.
+
+    Devuelve un dict con lo que la pantalla necesita saber:
+        {ok, mic, altavoz, mic_nombre, altavoz_nombre, mensaje, detalle}
+
+    'ok' es False si falta el micrófono o los parlantes, que es justo el caso
+    en el que MIA parece estar rota sin decir por qué.
+    """
+    estado = {
+        "ok": False, "mic": False, "altavoz": False,
+        "mic_nombre": "", "altavoz_nombre": "",
+        "mensaje": "", "detalle": "",
+    }
+
+    try:
+        entradas, salidas = list_devices()
+    except Exception as e:
+        estado["mensaje"] = "No se puede acceder al audio"
+        estado["detalle"] = f"pyaudio no arrancó ({e}). ¿Falta portaudio19-dev?"
+        return estado
+
+    if entradas:
+        idx = find_input_device()
+        elegida = next((d for d in entradas if d["index"] == idx), entradas[0])
+        estado["mic"] = True
+        estado["mic_nombre"] = elegida["name"]
+
+    if salidas:
+        # Preferimos enseñar un USB si lo hay: es lo que el usuario espera ver.
+        usb = next((d for d in salidas
+                    if any(h in d["name"].lower() for h in _USB_HINTS)), None)
+        elegida = usb or salidas[0]
+        estado["altavoz"] = True
+        estado["altavoz_nombre"] = elegida["name"]
+
+    estado["ok"] = estado["mic"] and estado["altavoz"]
+
+    if not estado["mic"] and not estado["altavoz"]:
+        estado["mensaje"] = "No hay micrófono ni parlantes"
+        estado["detalle"] = "Conéctalos por USB y reinicia MIA."
+    elif not estado["mic"]:
+        estado["mensaje"] = "No se detecta el micrófono"
+        estado["detalle"] = "Conecta el micrófono USB y reinicia MIA."
+    elif not estado["altavoz"]:
+        estado["mensaje"] = "No se detectan los parlantes"
+        estado["detalle"] = "Conecta los parlantes USB y reinicia MIA."
+
+    return estado
+
+
 def main():
     """Imprime todos los dispositivos de audio del sistema."""
     print("=" * 62)
