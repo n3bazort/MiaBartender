@@ -104,31 +104,46 @@ nano .env
 Pon tu **`GROQ_API_KEY`** (gratis, sin tarjeta, en https://console.groq.com).
 Guarda con `Ctrl+O` y sal con `Ctrl+X`.
 
-> **No necesitas cuenta de Picovoice.** La palabra "Mia" se reconoce con Vosk,
-> un motor offline libre que no pide registro ni correo de empresa. El
-> instalador ya bajó su modelo.
->
+**Esa es la única clave que MIA necesita para funcionar entera.** El resto
+(hablar y despertar con "Mia") ya está resuelto con servicios libres que no
+piden cuenta. Los detalles están en la sección 4.
+
 > El `.env` no viaja en el repositorio, así que hay que llenarlo en la Pi.
 
 ---
 
-## 3 bis. Las claves de API: cuáles usa MIA y dónde sacarlas
+## 4. Las claves de API: cuáles usa MIA y dónde sacarlas
 
-MIA usa **un solo servicio obligatorio** (Groq). Todo lo demás es opcional o
-funciona sin cuenta.
+MIA es un sistema **por voz**, así que las cuatro funciones de abajo son
+todas imprescindibles: si falta una, MIA no sirve. Lo que cambia es que
+**solo una de ellas necesita que tú saques una clave**; las demás ya vienen
+resueltas con servicios gratuitos que no piden cuenta.
 
-| Servicio | Para qué | ¿Obligatorio? | Coste |
+| Función | ¿Se puede quitar? | Quién la hace | ¿Necesita clave tuya? |
 |---|---|---|---|
-| **Groq** | Oír (Whisper) y pensar (Llama) | **Sí** | Gratis |
-| **ElevenLabs** | Voz natural con emoción | No | Gratis ~10 min/mes |
-| **edge-tts** | Voz de respaldo (Microsoft) | No | Gratis, sin cuenta |
-| **Vosk** | Palabra "Mia" (offline) | No | Gratis, sin cuenta |
-| **Picovoice** | Alternativa a Vosk | No | Pide correo de empresa |
+| **Oír** (voz → texto) | No | Groq (Whisper) | **Sí — `GROQ_API_KEY`** |
+| **Pensar** (qué responder) | No | Groq (Llama) | Sí — la **misma** clave |
+| **Hablar** (texto → voz) | No | edge-tts (Microsoft) | No, es libre |
+| **Despertar** ("Mia") | No en la Pi | Vosk (offline) | No, es libre |
 
-### GROQ_API_KEY — la única imprescindible
+Es decir: **con una sola clave, la de Groq, MIA funciona entera.**
 
-Hace dos trabajos: convierte tu voz en texto (Whisper) y decide qué responder
-(Llama). Sin esta clave MIA no funciona.
+Además hay dos **mejoras opcionales**. Estas sí se pueden quitar sin que nada
+deje de funcionar, porque solo sustituyen a algo que ya está resuelto:
+
+| Mejora opcional | Sustituye a | Qué aporta | Coste |
+|---|---|---|---|
+| **ElevenLabs** | edge-tts | Voz más natural y con emoción | Gratis ~10 min/mes |
+| **Picovoice** | Vosk | Gasta menos CPU en la Pi | Exige correo de empresa |
+
+> **En resumen:** solo necesitas registrarte en **Groq**. Si además quieres la
+> voz bonita, registrarte también en ElevenLabs. Nada más.
+
+### GROQ_API_KEY — la única clave que tienes que sacar
+
+Hace dos de las cuatro funciones: convierte tu voz en texto (Whisper) y decide
+qué responder (Llama). **Sin esta clave MIA no arranca**, y te lo dice al
+intentarlo.
 
 - **Sácala en:** https://console.groq.com
 - Crea cuenta con Gmail (acepta correo personal, **no** pide tarjeta).
@@ -142,11 +157,19 @@ GROQ_API_KEY=gsk_tu_clave_aqui
 > Ojo: la clave solo se muestra **una vez** al crearla. Si la pierdes, borra
 > esa y crea otra.
 
-### ELEVENLABS_API_KEY — opcional, para la voz bonita
+### Hablar — siempre funciona, con o sin clave
 
-Da una voz mucho más natural y con emoción. Si no la pones, MIA usa `edge-tts`
-de Microsoft, que es gratis, ilimitado y no pide cuenta — suena bien, solo que
-algo más plana.
+**Hablar no es opcional**: es un bartender por voz. Lo que sí es opcional es
+*con qué voz* habla.
+
+Por defecto usa **edge-tts** de Microsoft: gratis, ilimitado y **sin cuenta ni
+clave**. Ya viene instalado y funciona solo. Con eso MIA habla perfectamente,
+solo que con una entonación algo más plana.
+
+**ELEVENLABS_API_KEY** solo mejora esa voz: la hace más natural y con emoción.
+
+Si pones `TTS_ENGINE=elevenlabs` pero te falta la clave, MIA **no se rompe**:
+avisa por consola y sigue con edge-tts. Lo mismo si se te agotan los minutos.
 
 - **Sácala en:** https://elevenlabs.io
 - Cuenta gratis con Gmail, sin tarjeta.
@@ -166,11 +189,14 @@ Para usar solo la voz gratis, sin cuenta de ElevenLabs:
 TTS_ENGINE=edge
 ```
 
-### La palabra "Mia" — sin clave ninguna
+### La palabra "Mia" — obligatoria en la Pi, pero sin clave
 
-Se reconoce con **Vosk**, un motor offline libre. No hay que registrarse en
-ningún sitio: el instalador baja su modelo (~40 MB) y listo. Funciona sin
-internet.
+En la Pi **hace falta sí o sí**: es la única forma de activarla, porque no hay
+botón que pulsar. (En la tablet, con el modo *Pulsar*, no se necesita.)
+
+La buena noticia es que **no requiere ninguna clave**. La reconoce **Vosk**, un
+motor offline libre: el instalador baja su modelo (~40 MB) una vez y funciona
+sin internet y sin registrarse en ningún sitio.
 
 Existe una alternativa (**Picovoice**) que gasta menos CPU, pero su registro
 **exige un correo de empresa** y rechaza Gmail. No hace falta para nada; solo
@@ -199,7 +225,7 @@ nano .env
 
 ---
 
-## 4. Micrófono y parlantes USB
+## 5. Micrófono y parlantes USB
 
 Conecta los dos y comprueba que se ven:
 
@@ -250,7 +276,7 @@ aplay prueba.wav                # y los reproduce
 
 ---
 
-## 5. Calibrar las bombas
+## 6. Calibrar las bombas
 
 Esto define **dónde se para el vaso bajo cada bomba**. Hazlo una vez, con el
 vaso puesto:
@@ -288,7 +314,7 @@ sudo systemctl restart mia    # para que MIA tome las posiciones nuevas
 
 ---
 
-## 6. Arrancarla
+## 7. Arrancarla
 
 ### A mano (ves los mensajes mientras pruebas)
 
@@ -321,7 +347,7 @@ la charla del bar no la activa. Ejemplo: *"Mia, prepárame una paloma dulce"*.
 
 ---
 
-## 7. Que arranque sola al encender
+## 8. Que arranque sola al encender
 
 El instalador ya dejó el servicio listo con las rutas de **tu** Pi. Solo
 actívalo:
@@ -351,7 +377,7 @@ cd ~/mia && git pull && sudo systemctl restart mia
 
 ---
 
-## 8. Si algo falla
+## 9. Si algo falla
 
 | Síntoma | Qué mirar |
 |---|---|
@@ -372,7 +398,7 @@ cd ~/mia && git pull && sudo systemctl restart mia
 
 ---
 
-## 9. Dónde se cambia cada cosa
+## 10. Dónde se cambia cada cosa
 
 | Qué quieres cambiar | Dónde |
 |---|---|

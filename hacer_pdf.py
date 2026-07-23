@@ -44,26 +44,84 @@ body {
     margin: 0;
 }
 
-/* --- Portada --- */
+/* --- Portada (página completa) --- */
 .portada {
+    height: 252mm;                 /* alto útil de un A4 con estos márgenes */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     text-align: center;
-    padding: 28mm 0 10mm;
-    border-bottom: 2.5pt solid #16181d;
-    margin-bottom: 9mm;
     page-break-after: always;
 }
-.portada h1 { font-size: 30pt; margin: 0 0 4mm; letter-spacing: -.5pt; }
-.portada .sub { font-size: 12pt; color: #4a5058; margin-bottom: 12mm; }
+
+.portada .copa { font-size: 46pt; line-height: 1; margin-bottom: 8mm; }
+
+.portada .filo {
+    width: 34mm;
+    border-top: 2.5pt solid #16181d;
+    margin: 0 0 8mm;
+}
+
+.portada h1 {
+    font-size: 40pt;
+    margin: 0 0 3mm;
+    padding: 0;
+    border: none;
+    letter-spacing: -1pt;
+    font-weight: 800;
+}
+
+.portada .lema {
+    font-size: 13pt;
+    color: #4a5058;
+    font-style: italic;
+    margin-bottom: 14mm;
+}
+
+.portada .sub {
+    font-size: 15pt;
+    font-weight: 600;
+    color: #16181d;
+    border-top: .8pt solid #c8ccd2;
+    border-bottom: .8pt solid #c8ccd2;
+    padding: 4mm 10mm;
+    margin-bottom: 14mm;
+}
+
 .portada .repo {
     font-family: Consolas, "Courier New", monospace;
-    font-size: 10pt;
+    font-size: 10.5pt;
     color: #16181d;
     border: 1pt solid #c8ccd2;
     border-radius: 3pt;
-    padding: 3mm 6mm;
-    display: inline-block;
+    padding: 3mm 7mm;
 }
-.portada .fecha { margin-top: 10mm; font-size: 9pt; color: #6b7280; }
+
+.portada .fecha { margin-top: 8mm; font-size: 9.5pt; color: #6b7280; }
+
+/* --- Índice --- */
+.indice { page-break-after: always; }
+.indice h2 {
+    page-break-before: avoid;
+    margin-top: 0;
+    font-size: 15pt;
+}
+.indice ol {
+    list-style: none;
+    padding: 0;
+    margin: 5mm 0 0;
+    font-size: 11pt;
+}
+.indice li {
+    padding: 2.2mm 0;
+    border-bottom: .5pt dotted #c8ccd2;
+}
+.indice li span {
+    display: inline-block;
+    width: 9mm;
+    font-weight: 700;
+}
 
 h1, h2, h3 { line-height: 1.25; page-break-after: avoid; }
 
@@ -161,8 +219,11 @@ strong { font-weight: 700; }
 
 PORTADA = """
 <div class="portada">
-  <h1>MIA &mdash; Bartender por voz</h1>
-  <div class="sub">Manual de instalaci&oacute;n y uso en Raspberry Pi</div>
+  <div class="copa">&#127864;</div>
+  <div class="filo"></div>
+  <h1>MIA</h1>
+  <div class="lema">Bartender por voz</div>
+  <div class="sub">Manual de instalaci&oacute;n y uso<br>en Raspberry Pi</div>
   <div class="repo">github.com/n3bazort/MiaBartender</div>
   <div class="fecha">{fecha}</div>
 </div>
@@ -188,6 +249,20 @@ def main():
         texto, extensions=["tables", "fenced_code", "sane_lists"]
     )
 
+    # Índice a partir de los títulos de sección (##) del propio manual, para
+    # que no haya que mantenerlo a mano cuando se añadan secciones.
+    secciones = re.findall(r"^## +(.+?)\s*$", texto, re.M)
+    filas = []
+    for s in secciones:
+        s = re.sub(r"[*`]", "", s).strip()
+        m = re.match(r"^([\w\s]{1,7}?)\.\s+(.*)$", s)
+        if m:
+            filas.append(f"<li><span>{m.group(1)}.</span>{m.group(2)}</li>")
+        else:
+            filas.append(f"<li><span></span>{s}</li>")
+    indice = ("<div class='indice'><h2>Contenido</h2><ol>"
+              + "".join(filas) + "</ol></div>") if filas else ""
+
     meses = ("enero febrero marzo abril mayo junio julio agosto "
              "septiembre octubre noviembre diciembre").split()
     hoy = date.today()
@@ -198,6 +273,7 @@ def main():
         "<title>MIA - Manual Raspberry Pi</title>"
         f"<style>{CSS}</style></head><body>"
         + PORTADA.format(fecha=fecha)
+        + indice
         + cuerpo
         + "</body></html>"
     )
