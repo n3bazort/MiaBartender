@@ -32,3 +32,6 @@ models/
 
 # Calibración física: es propia de CADA máquina, se genera con calibrar_bombas.py
 calibracion.json
+
+# El PDF se regenera con:  python hacer_pdf.py
+RASPBERRY.pdf

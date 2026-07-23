@@ -112,6 +112,93 @@ Guarda con `Ctrl+O` y sal con `Ctrl+X`.
 
 ---
 
+## 3 bis. Las claves de API: cuáles usa MIA y dónde sacarlas
+
+MIA usa **un solo servicio obligatorio** (Groq). Todo lo demás es opcional o
+funciona sin cuenta.
+
+| Servicio | Para qué | ¿Obligatorio? | Coste |
+|---|---|---|---|
+| **Groq** | Oír (Whisper) y pensar (Llama) | **Sí** | Gratis |
+| **ElevenLabs** | Voz natural con emoción | No | Gratis ~10 min/mes |
+| **edge-tts** | Voz de respaldo (Microsoft) | No | Gratis, sin cuenta |
+| **Vosk** | Palabra "Mia" (offline) | No | Gratis, sin cuenta |
+| **Picovoice** | Alternativa a Vosk | No | Pide correo de empresa |
+
+### GROQ_API_KEY — la única imprescindible
+
+Hace dos trabajos: convierte tu voz en texto (Whisper) y decide qué responder
+(Llama). Sin esta clave MIA no funciona.
+
+- **Sácala en:** https://console.groq.com
+- Crea cuenta con Gmail (acepta correo personal, **no** pide tarjeta).
+- Entra en **API Keys → Create API Key** y cópiala.
+- Empieza por `gsk_...`
+
+```
+GROQ_API_KEY=gsk_tu_clave_aqui
+```
+
+> Ojo: la clave solo se muestra **una vez** al crearla. Si la pierdes, borra
+> esa y crea otra.
+
+### ELEVENLABS_API_KEY — opcional, para la voz bonita
+
+Da una voz mucho más natural y con emoción. Si no la pones, MIA usa `edge-tts`
+de Microsoft, que es gratis, ilimitado y no pide cuenta — suena bien, solo que
+algo más plana.
+
+- **Sácala en:** https://elevenlabs.io
+- Cuenta gratis con Gmail, sin tarjeta.
+- **Perfil (arriba a la derecha) → API Keys**
+- La capa gratis da unos **10 minutos de audio al mes**. Cuando se agota, MIA
+  deja de hablar con esa voz: cambia `TTS_ENGINE=edge` y sigue funcionando.
+
+```
+TTS_ENGINE=elevenlabs
+ELEVENLABS_API_KEY=tu_clave_aqui
+ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+```
+
+Para usar solo la voz gratis, sin cuenta de ElevenLabs:
+
+```
+TTS_ENGINE=edge
+```
+
+### La palabra "Mia" — sin clave ninguna
+
+Se reconoce con **Vosk**, un motor offline libre. No hay que registrarse en
+ningún sitio: el instalador baja su modelo (~40 MB) y listo. Funciona sin
+internet.
+
+Existe una alternativa (**Picovoice**) que gasta menos CPU, pero su registro
+**exige un correo de empresa** y rechaza Gmail. No hace falta para nada; solo
+si algún día quieres probarla:
+
+- https://console.picovoice.ai → `PICOVOICE_ACCESS_KEY=...` en el `.env`
+
+### Cómo llevar tus claves a la Pi
+
+Lo más rápido es copiar el `.env` desde la laptop (un solo comando, desde la
+laptop, **no** desde la Pi):
+
+```bash
+scp .env pi@raspberrypi.local:~/mia/.env
+```
+
+O escribirlas a mano en la Pi:
+
+```bash
+nano .env
+```
+
+> **Nunca subas el `.env` a GitHub.** Ya está en `.gitignore` para que no pase
+> por accidente. Si alguna vez se te escapa una clave, bórrala en la web del
+> servicio y crea una nueva.
+
+---
+
 ## 4. Micrófono y parlantes USB
 
 Conecta los dos y comprueba que se ven:
@@ -125,7 +212,9 @@ sola el micro USB.
 
 > La pantalla de la Pi **avisa sola** si falta el micrófono o los parlantes:
 > sale un aviso rojo arriba. Comprueba cada 15 segundos, así que al
-> enchufar el USB desaparece solo, sin recargar la tablet. Si eligiera el equivocado, fija el índice en `.env`:
+> enchufar el USB desaparece solo, sin recargar la tablet.
+
+Si eligiera el micrófono equivocado, fija el índice en `.env`:
 
 ```
 MIC_DEVICE_INDEX=1
