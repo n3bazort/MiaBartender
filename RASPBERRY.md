@@ -245,15 +245,25 @@ TTS_ENGINE=edge
 
 ### Cambiarle el nombre a MIA
 
-La palabra de activación es **"Mia"**, pero se cambia en **un solo sitio**.
-En el `.env` de la Pi:
+Por defecto la palabra es **"Mia"**, y **no hay que poner nada en el `.env`**
+para que funcione así: si la línea no está, MIA usa "Mia" sola.
+
+Para cambiarlo, **añade** esta línea al `.env` de la Pi (no existe de fábrica,
+la escribes tú):
 
 ```
 WAKE_KEYWORD=sofia
 ```
 
-Reinicia y listo (`sudo systemctl restart mia`). Los mensajes de la pantalla y
-de la consola se actualizan solos: no hay que tocar código.
+O de una vez, sin abrir el editor:
+
+```bash
+echo "WAKE_KEYWORD=sofia" >> ~/mia/.env
+sudo systemctl restart mia
+```
+
+Los mensajes de la pantalla y de la consola se actualizan solos: no hay que
+tocar código.
 
 - No pongas acentos: la comparación ya los ignora (`sofia` reconoce "Sofía").
 - Funciona mejor con nombres de **2 o 3 sílabas que existan en español**
