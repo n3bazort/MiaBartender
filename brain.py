@@ -31,15 +31,14 @@ from config import (
 ACCIONES_VALIDAS = {"preparar", "responder", "no_disponible", "fuera_de_tema"}
 EMOCIONES_VALIDAS = {"feliz", "guino", "pensando", "risa", "neutral"}
 
-# --- Frases para entrar/salir del MODO ADMIN (desarrollador) ---
-# Se comprueba SALIR antes que ENTRAR (para no confundir "sal del modo admin").
+# --- Frases para entrar/salir del MODO AUDITOR (explica cómo funciona) ---
+# Se comprueba SALIR antes que ENTRAR.
 FRASES_SALIR_ADMIN = [
-    "admin fuera", "fuera admin", "modo bar", "sal del modo admin",
-    "salir del modo admin", "sal de admin", "desactiva el modo admin",
-    "quita el modo admin", "cierra el modo admin",
+    "termina la auditoria", "termino la auditoria", "fin de la auditoria",
+    "auditor fuera", "sal del modo auditor", "cierra la auditoria", "modo bar",
 ]
 FRASES_ENTRAR_ADMIN = [
-    "modo admin", "modo administrador", "modo desarrollador", "admin mode",
+    "soy el auditor", "soy la auditora", "soy auditor", "modo auditor",
 ]
 
 
@@ -50,8 +49,8 @@ class Brain:
         self._client = Groq(api_key=GROQ_API_KEY)
         self._history = []   # [{"role": "user"/"assistant", "content": ...}]
         self._menu_context = self._build_menu_context()
-        # Modo administrador/desarrollador: cuando está activo, MIA puede explicar
-        # su propia arquitectura técnica (fuera de la restricción "solo bar").
+        # Modo auditor: cuando está activo (frase "soy el auditor"), MIA puede
+        # explicar su propia arquitectura técnica (fuera de la restricción "solo bar").
         self.admin_mode = False
         print(f"[BRAIN] Groq listo (modelo {GROQ_LLM_MODEL}).")
 
@@ -96,8 +95,8 @@ class Brain:
     def _strip_admin_trigger(user_text):
         """Quita la muletilla de activación para dejar la pregunta real."""
         cleaned = user_text
-        for phrase in ["mia", "modo administrador", "modo desarrollador",
-                       "modo admin", "admin mode"]:
+        for phrase in ["mia", "soy el auditor", "soy la auditora", "soy auditor",
+                       "modo auditor"]:
             cleaned = re.sub(phrase, "", cleaned, flags=re.IGNORECASE)
         return cleaned.strip(" ,.:;-–").strip()
 
@@ -105,7 +104,7 @@ class Brain:
         """System prompt del modo admin: datos técnicos REALES desde la config."""
         pines_bombas = ", ".join(f"{k}=GPIO{v}" for k, v in PUMP_PINS.items())
         return (
-            "Eres MIA en MODO ADMINISTRADOR (desarrollador). En este modo, además "
+            "Eres MIA atendiendo a un AUDITOR TÉCNICO. En este modo, además "
             "de seguir siendo bartender, PUEDES explicar tu propia arquitectura "
             "técnica con total transparencia y de forma didáctica. Habla en español.\n\n"
             "FORMATO: responde SIEMPRE con un ÚNICO objeto JSON con las claves "
@@ -157,21 +156,21 @@ class Brain:
         if toggle == "exit":
             self.admin_mode = False
             self._history.clear()
-            print("[BRAIN] MODO ADMIN desactivado.")
+            print("[BRAIN] MODO AUDITOR desactivado.")
             return {
                 "accion": "responder", "coctel": None,
-                "mensaje": "Modo administrador desactivado. Vuelvo a ser tu bartender "
+                "mensaje": "Auditoría finalizada. Vuelvo a ser tu bartender "
                            "y solo hablo de cócteles. ¿Qué te preparo?",
                 "dato_curioso": None, "emocion": "guino",
             }
         if toggle == "enter":
             self.admin_mode = True
-            print("[BRAIN] MODO ADMIN activado.")
+            print("[BRAIN] MODO AUDITOR activado.")
             # Quitar la muletilla para dejar la pregunta real (si la hay).
             user_text = self._strip_admin_trigger(user_text)
             if not user_text:
-                user_text = ("Confirma que entraste en modo administrador y explícame "
-                             "de forma breve cómo funcionas y qué puedo preguntarte aquí.")
+                user_text = ("Saluda al auditor y explícale de forma breve cómo "
+                             "funcionas y qué puede preguntarte aquí.")
 
         # --- Elegir el system prompt según el modo ---
         if self.admin_mode:
