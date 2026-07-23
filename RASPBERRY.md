@@ -18,18 +18,72 @@ sudo systemctl enable --now mia                             # 6. dejarla autóno
 
 ## 1. Conectarte a la Pi
 
-La Pi no necesita monitor ni teclado: entras por **SSH** desde la laptop.
+La Pi no necesita monitor ni teclado: entras por **SSH** desde la laptop, por
+la red WiFi.
+
+> **Red configurada:** la Pi tiene guardadas las credenciales del WiFi del
+> **período académico 2026-1**. En esa red arranca y se conecta sola. Para
+> usarla en otra red hay que **sacar la microSD** y configurarla desde otra
+> computadora (ver **1.1 C**), porque sin pantalla ni teclado no se puede
+> cambiar el WiFi desde la propia Pi.
 
 ### 1.1 Que la Pi tenga WiFi
 
-**A) Ya la usaste antes en esta red** — se conecta sola al encenderla. Pasa al 1.2.
+**A) Estás en la red del período 2026-1** — se conecta sola al encenderla.
+Pasa al 1.2.
 
-**B) Red nueva** — la forma más segura es regrabar la microSD con **Raspberry Pi
-Imager**: en el engranaje de ajustes pones el WiFi, el usuario y la contraseña,
-y activas SSH **antes** de grabar.
+**B) Fuera de esa red, sobre la marcha** — activa el hotspot del celular
+poniéndole **el mismo nombre y la misma contraseña** que el WiFi del período
+2026-1. La Pi cree que es la red de siempre y se conecta sin tocar nada. Es la
+salida más rápida para una demostración fuera del aula.
 
-**C) Fuera de casa** — activa el hotspot del celular con el **mismo nombre y
-contraseña** del WiFi que la Pi ya conoce. Se conecta sola, sin tocar nada.
+**C) Cambiar la red de forma permanente** — hay que **sacar la microSD** y
+configurarla desde otra computadora. La Pi no tiene pantalla ni teclado, así
+que no se puede cambiar el WiFi estando ella sola.
+
+Apaga primero con `sudo poweroff` y espera a que se apaguen los LED antes de
+sacar la tarjeta. Luego métela en una computadora con lector y elige una de
+las dos vías:
+
+**C.1 — Añadir la red nueva (NO borra nada). Prueba esta primero.**
+
+Al meter la SD, Windows te muestra una partición llamada `bootfs`. Crea ahí un
+archivo de texto llamado **`wpa_supplicant.conf`** con esto dentro:
+
+```
+country=EC
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="NOMBRE_DEL_WIFI_NUEVO"
+    psk="CONTRASEÑA_DEL_WIFI_NUEVO"
+}
+```
+
+Crea también un archivo **vacío** llamado `ssh`, sin extensión, en esa misma
+partición. Devuelve la SD a la Pi y enciéndela: conserva MIA, la calibración
+y las claves intactas.
+
+**C.2 — Regrabar la tarjeta (sí borra todo). Solo si C.1 falla.**
+
+Graba de nuevo con **Raspberry Pi Imager**. En el **engranaje de ajustes**,
+*antes* de grabar, pon el WiFi nuevo, el usuario y la contraseña de la Pi, y
+**activa SSH**.
+
+> Regrabar **borra la tarjeta entera**: habrá que repetir el `git clone`, el
+> `bash instalar.sh`, el `.env` y **toda la calibración de las bombas**.
+>
+> Por eso, **antes de sacar la SD**, guarda una copia de los dos archivos que
+> no se pueden recuperar solos (desde la laptop, con la Pi encendida):
+>
+> ```bash
+> scp pi@raspberrypi.local:~/mia/calibracion.json .
+> scp pi@raspberrypi.local:~/mia/.env .
+> ```
+>
+> Después de reinstalar, los devuelves con `scp` al revés y te ahorras volver
+> a calibrar bomba por bomba.
 
 ### 1.2 Encontrar su IP
 
@@ -382,6 +436,7 @@ cd ~/mia && git pull && sudo systemctl restart mia
 | Síntoma | Qué mirar |
 |---|---|
 | No entra por SSH | ¿Pi y laptop en la **misma** red? Prueba con la IP en vez de `raspberrypi.local`. |
+| La Pi no se conecta al WiFi | Solo conoce la red del período **2026-1**. Usa el hotspot con ese mismo nombre y contraseña, o cambia la red sacando la SD (**1.1 C**). |
 | `No module named pyaudio` | `sudo apt install portaudio19-dev && pip install --force-reinstall pyaudio` |
 | Falta el modelo de voz | `.venv/bin/python descargar_modelo.py` |
 | Sale un aviso rojo arriba en la pantalla | Falta el micro o los parlantes. Enchúfalos por USB: el aviso se va solo en unos segundos. |
