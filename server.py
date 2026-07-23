@@ -152,27 +152,37 @@ def handle_voice_command(data):
           f"wake={'sí' if requiere_wake else 'no'}).")
 
     def _procesar():
-        from stt import transcribe
-        socketio.emit("state_update", {"state": "thinking", "text": "Transcribiendo..."})
-        text = transcribe(audio_bytes, filename=f"comando.{ext}")
-        if not text:
-            socketio.emit("mic_error", {"message": "No te escuché bien, ¿me repites?"})
-            socketio.emit("state_update", {"state": "idle", "text": ""})
-            return
-
-        if requiere_wake:
-            limpio = quitar_wake_word(text)
-            if limpio is None:
-                # Se habló, pero sin nombrar a MIA: se ignora en silencio para
-                # que el micrófono abierto no reaccione a la charla del bar.
-                print(f"[SERVER] Sin palabra de activación, ignorado: {text!r}")
+        # Pase lo que pase, el navegador tiene que recibir una respuesta: si
+        # este hilo muere en silencio, el botón del micrófono se queda
+        # bloqueado en "Procesando..." para siempre.
+        try:
+            from stt import transcribe
+            socketio.emit("state_update", {"state": "thinking", "text": "Transcribiendo..."})
+            text = transcribe(audio_bytes, filename=f"comando.{ext}")
+            if not text:
+                socketio.emit("mic_error", {"message": "No te escuché bien, ¿me repites?"})
                 socketio.emit("state_update", {"state": "idle", "text": ""})
-                socketio.emit("mic_idle", {})
                 return
-            text = limpio or "¿Qué me recomiendas?"
 
-        socketio.emit("user_said", {"text": text})
-        mia.handle_text(text)
+            if requiere_wake:
+                limpio = quitar_wake_word(text)
+                if limpio is None:
+                    # Se habló, pero sin nombrar a MIA: se ignora en silencio para
+                    # que el micrófono abierto no reaccione a la charla del bar.
+                    print(f"[SERVER] Sin palabra de activación, ignorado: {text!r}")
+                    socketio.emit("state_update", {"state": "idle", "text": ""})
+                    socketio.emit("mic_idle", {})
+                    return
+                text = limpio or "¿Qué me recomiendas?"
+
+            socketio.emit("user_said", {"text": text})
+            mia.handle_text(text)
+        except Exception as e:
+            import traceback
+            print(f"[SERVER][ERROR] Falló el procesado de voz: {e}")
+            traceback.print_exc()
+            socketio.emit("mic_error", {"message": "Se me trabó algo, inténtalo otra vez"})
+            socketio.emit("state_update", {"state": "idle", "text": ""})
 
     threading.Thread(target=_procesar, daemon=True).start()
 

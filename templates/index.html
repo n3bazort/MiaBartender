@@ -1700,10 +1700,36 @@
         let micRAF = null;
         let micHuboVoz = false;
 
+        let micWatchdog = null;
+
         function micMensaje(texto, esError) {
             if (!micHint) return;
             micHint.textContent = texto;
             micHint.classList.toggle('error', !!esError);
+        }
+
+        // Libera el micrófono tras una respuesta del servidor.
+        function micLibre() {
+            micProcesando = false;
+            if (micWatchdog) { clearTimeout(micWatchdog); micWatchdog = null; }
+            micActualizarBoton();
+        }
+
+        // Red de seguridad: si el servidor no contesta (corte de red, error
+        // inesperado en el hilo de proceso), el botón no puede quedarse
+        // bloqueado en "Procesando…" para siempre.
+        function micEsperarRespuesta() {
+            micProcesando = true;
+            micActualizarBoton();
+            if (micWatchdog) clearTimeout(micWatchdog);
+            micWatchdog = setTimeout(() => {
+                micWatchdog = null;
+                if (!micProcesando) return;
+                micProcesando = false;
+                micActualizarBoton();
+                micMensaje('MIA no respondió, inténtalo otra vez', true);
+                micAutoEscuchar(1200);
+            }, 25000);
         }
 
         function micActualizarBoton() {
@@ -1842,8 +1868,7 @@
 
             // Nada que transcribir: ni voz detectada ni audio suficiente.
             if (!micHuboVoz || blob.size < 2000) {
-                micProcesando = false;
-                micActualizarBoton();
+                micLibre();
                 if (!document.body.classList.contains('pouring')) {
                     stateText.textContent = 'DURMIENDO';
                     stateText.style.color = '#9ca3af';
@@ -1854,8 +1879,7 @@
                 return;
             }
 
-            micProcesando = true;
-            micActualizarBoton();
+            micEsperarRespuesta();
 
             const ext = (mime && mime.includes('ogg')) ? 'ogg'
                       : (mime && mime.includes('mp4')) ? 'mp4' : 'webm';
@@ -1885,17 +1909,22 @@
 
         // Lo que el servidor entendió de tu voz
         socket.on('user_said', (d) => {
-            micProcesando = false;
+            micLibre();
             subtitleBox.classList.add('from-user');
             setSubtitle(d.text || '');
-            micActualizarBoton();
         });
 
         socket.on('mic_error', (d) => {
-            micProcesando = false;
-            micActualizarBoton();
+            micLibre();
             micMensaje((d && d.message) || 'No te escuché bien', true);
             micAutoEscuchar(900);
+        });
+
+        // El servidor oyó algo pero no nombraba a MIA (micrófono abierto):
+        // se descarta en silencio y el micrófono vuelve a quedar libre.
+        socket.on('mic_idle', () => {
+            micLibre();
+            micAutoEscuchar(400);
         });
 
         // --- Música de espera + controles de volumen (Touch Pro) ---
