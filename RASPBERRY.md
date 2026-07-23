@@ -7,7 +7,7 @@ funcionando sola con su micrófono y parlantes USB.
 
 ```bash
 ssh pi@raspberrypi.local                                    # 1. conectarte
-git clone https://github.com/n3bazort/mia.git ~/mia && cd ~/mia # 2. bajar código
+git clone https://github.com/n3bazort/MiaBartender.git ~/mia && cd ~/mia # 2. bajar código
 bash instalar.sh                                            # 3. instalar TODO
 nano .env                                                   # 4. tu clave de Groq
 .venv/bin/python calibrar_bombas.py                         # 5. centrar el vaso
@@ -62,7 +62,7 @@ O con la IP: `ssh pi@192.168.1.45`. Si tu usuario no es `pi`, cámbialo.
 
 ```bash
 sudo apt update && sudo apt install -y git
-git clone https://github.com/n3bazort/mia.git ~/mia
+git clone https://github.com/n3bazort/MiaBartender.git ~/mia
 cd ~/mia
 ```
 
