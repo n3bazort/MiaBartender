@@ -70,9 +70,9 @@ TTS_ENGINE = os.getenv("TTS_ENGINE", "elevenlabs").lower()
 
 # --- ElevenLabs ---
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
-# ID de la voz. Por defecto "Rachel" (existe en toda cuenta). Puedes elegir otra
-# en tu Voice Library de ElevenLabs y poner su ID aquí (vía .env).
-ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+# ID de la voz elegida en la Voice Library de ElevenLabs. Puedes cambiarla por
+# otra poniendo su ID en .env (ELEVENLABS_VOICE_ID).
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "LBZahKjme9Rf3qvNwyEL")
 # Modelo: eleven_multilingual_v2 = máxima calidad en español.
 # Alternativa: eleven_turbo_v2_5 = más rápido y gasta la mitad de créditos.
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
