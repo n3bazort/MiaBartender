@@ -11,6 +11,7 @@
 # hace falta LaTeX ni pandoc.
 # ============================================================
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -290,22 +291,49 @@ def main():
         return 1
 
     print(f"Convirtiendo con {os.path.basename(navegador)}...")
+
+    # Si el PDF está abierto en un visor (Acrobat bloquea el archivo en
+    # Windows), no se puede sobrescribir. Se genera aparte y luego se intenta
+    # mover; si sigue bloqueado, se deja con otro nombre en vez de fallar.
+    destino = SALIDA
+    bloqueado = False
     if os.path.exists(SALIDA):
-        os.remove(SALIDA)
+        try:
+            os.remove(SALIDA)
+        except PermissionError:
+            bloqueado = True
+            destino = os.path.join(tempfile.gettempdir(), "mia_manual.pdf")
 
     subprocess.run([
         navegador,
         "--headless",
         "--disable-gpu",
         "--no-pdf-header-footer",
-        f"--print-to-pdf={SALIDA}",
+        f"--print-to-pdf={destino}",
         "--virtual-time-budget=10000",
         tmp,
     ], check=False, capture_output=True, timeout=120)
 
-    if os.path.exists(SALIDA):
-        kb = os.path.getsize(SALIDA) / 1024
-        print(f"\n[OK] PDF generado: {SALIDA}  ({kb:.0f} KB)")
+    if bloqueado and os.path.exists(destino):
+        try:
+            shutil.move(destino, SALIDA)          # ¿se cerró mientras tanto?
+            destino = SALIDA
+            bloqueado = False
+        except (PermissionError, OSError):
+            alterno = os.path.join(AQUI, "RASPBERRY-nuevo.pdf")
+            try:
+                shutil.move(destino, alterno)
+                destino = alterno
+            except (PermissionError, OSError):
+                pass
+
+    if os.path.exists(destino):
+        kb = os.path.getsize(destino) / 1024
+        print(f"\n[OK] PDF generado: {destino}  ({kb:.0f} KB)")
+        if bloqueado:
+            print("\n[AVISO] RASPBERRY.pdf está abierto en un visor y no se pudo")
+            print("        reemplazar. Ciérralo y vuelve a ejecutar este script,")
+            print(f"        o quédate con {os.path.basename(destino)}.")
         return 0
 
     print("[ERROR] El PDF no se generó.")

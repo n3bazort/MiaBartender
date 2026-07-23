@@ -243,6 +243,24 @@ Para usar solo la voz gratis, sin cuenta de ElevenLabs:
 TTS_ENGINE=edge
 ```
 
+### Cambiarle el nombre a MIA
+
+La palabra de activación es **"Mia"**, pero se cambia en **un solo sitio**.
+En el `.env` de la Pi:
+
+```
+WAKE_KEYWORD=sofia
+```
+
+Reinicia y listo (`sudo systemctl restart mia`). Los mensajes de la pantalla y
+de la consola se actualizan solos: no hay que tocar código.
+
+- No pongas acentos: la comparación ya los ignora (`sofia` reconoce "Sofía").
+- Funciona mejor con nombres de **2 o 3 sílabas que existan en español**
+  (Mia, Sofía, Carla, Elena). Un invento raro puede costarle reconocerlo.
+- Evita palabras que suenen como algo de uso común en la barra, o se activará
+  sola.
+
 ### La palabra "Mia" — obligatoria en la Pi, pero sin clave
 
 En la Pi **hace falta sí o sí**: es la única forma de activarla, porque no hay
@@ -462,4 +480,4 @@ cd ~/mia && git pull && sudo systemctl restart mia
 | Qué ingrediente hay en cada bomba | `BOMBAS_CONFIG` en `config.py` |
 | Posición física de cada bomba | `calibrar_bombas.py` (guarda en `calibracion.json`) |
 | Claves y dispositivos de audio | `.env` |
-| Palabra de activación | `WAKE_KEYWORD` en `.env` |
+| Palabra de activación ("Mia") | `WAKE_KEYWORD` en `.env` |

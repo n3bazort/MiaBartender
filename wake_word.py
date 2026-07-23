@@ -16,6 +16,18 @@
 import json
 import os
 import struct
+import unicodedata
+
+
+def _sin_acentos(texto):
+    """minúsculas y sin tildes, para comparar la palabra de activación.
+
+    Vosk transcribe fonéticamente: "Mia" puede salir como "mia" o "mía" según
+    cómo se pronuncie. Comparando sin acentos no hay que listar cada variante.
+    """
+    texto = (texto or "").lower()
+    return "".join(c for c in unicodedata.normalize("NFD", texto)
+                   if unicodedata.category(c) != "Mn")
 
 import pyaudio
 
@@ -71,7 +83,7 @@ class _MotorVosk:
 
         self._model = Model(VOSK_MODEL_PATH)
         self._rec = KaldiRecognizer(self._model, self.sample_rate)
-        self._variantes = {v.lower() for v in VOSK_WAKE_VARIANTS}
+        self._variantes = {_sin_acentos(v) for v in VOSK_WAKE_VARIANTS}
 
     def procesar(self, pcm_bytes):
         """True si en la frase recién cerrada se dijo la palabra clave."""
@@ -80,7 +92,8 @@ class _MotorVosk:
         texto = json.loads(self._rec.Result()).get("text", "")
         if not texto:
             return False
-        return bool(set(texto.lower().split()) & self._variantes)
+        palabras = {_sin_acentos(p) for p in texto.split()}
+        return bool(palabras & self._variantes)
 
     def reset(self):
         self._rec.Reset()

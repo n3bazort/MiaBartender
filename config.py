@@ -42,9 +42,12 @@ VOSK_MODEL_PATH = os.getenv(
 # Variantes de pronunciación que cuentan como la palabra clave. Vosk transcribe
 # fonéticamente, y "Mia" puede salir como "mía", "mia" o "mi a" según cómo se
 # diga; aceptamos todas para no perder activaciones.
+# Por defecto se deriva de WAKE_KEYWORD, para que cambiar el nombre en un solo
+# sitio baste. Los acentos NO hay que listarlos: la comparación los ignora
+# ("mia" reconoce "mía"). Añade aquí solo pronunciaciones REALMENTE distintas.
 VOSK_WAKE_VARIANTS = [
     v.strip().lower()
-    for v in os.getenv("VOSK_WAKE_VARIANTS", "mia,mía").split(",")
+    for v in os.getenv("VOSK_WAKE_VARIANTS", WAKE_KEYWORD).split(",")
     if v.strip()
 ]
 # URL del modelo (se baja una sola vez, ~40 MB comprimido).
