@@ -18,13 +18,16 @@ def _get_client():
     return _client
 
 
-def transcribe(wav_bytes):
-    """Transcribe un WAV (bytes) a texto en español.
+def transcribe(audio_bytes, filename="comando.wav"):
+    """Transcribe audio (bytes) a texto en español.
+
+    filename solo le indica el formato al API. El micrófono local envía WAV;
+    el navegador envía WebM/Opus ("comando.webm"), que Groq también acepta.
 
     Devuelve el texto transcrito, o None si el audio no produjo texto
     o hubo un error de red/API.
     """
-    if not wav_bytes:
+    if not audio_bytes:
         return None
 
     try:
@@ -32,7 +35,7 @@ def transcribe(wav_bytes):
         result = client.audio.transcriptions.create(
             model=GROQ_STT_MODEL,
             # (nombre, bytes) — el nombre solo indica el formato al API
-            file=("comando.wav", wav_bytes),
+            file=(filename, audio_bytes),
             language=STT_LANGUAGE,
             response_format="text",
         )

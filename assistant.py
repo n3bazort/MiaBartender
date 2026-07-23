@@ -11,7 +11,7 @@ import threading
 import time
 import unicodedata
 
-from config import ENABLE_WEB_PANEL
+from config import ENABLE_WEB_PANEL, WAKE_KEYWORD_DISPLAY
 
 # Frases que activan el cambio de proveedor de voz.
 FRASES_CAMBIAR_VOZ = [
@@ -209,7 +209,7 @@ class VoiceAssistant:
                                      or self.voice.is_speaking)
         self.recorder = Recorder()
 
-        print("\nMIA activa — di 'Mia' para hablarme.\n")
+        print(f"\nMIA activa — di '{WAKE_KEYWORD_DISPLAY}' para hablarme.\n")
 
         while self.is_running:
             try:

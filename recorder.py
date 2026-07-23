@@ -13,6 +13,7 @@ import wave
 
 import pyaudio
 
+from audio_devices import resolve_input_device
 from config import (
     MICROPHONE_DEVICE_INDEX,
     MIN_ENERGY_THRESHOLD,
@@ -31,6 +32,8 @@ class Recorder:
 
     def __init__(self):
         self._pa = pyaudio.PyAudio()
+        # Resuelve "auto" al índice del micro USB de la Pi (o None = el del sistema).
+        self._device_index = resolve_input_device(MICROPHONE_DEVICE_INDEX, self._pa)
 
     def record_command(self):
         """Graba hasta detectar silencio tras el habla.
@@ -44,7 +47,7 @@ class Recorder:
             format=pyaudio.paInt16,
             input=True,
             frames_per_buffer=CHUNK,
-            input_device_index=MICROPHONE_DEVICE_INDEX,
+            input_device_index=self._device_index,
         )
         try:
             seconds_per_buffer = CHUNK / SAMPLE_RATE

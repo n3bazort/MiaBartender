@@ -22,10 +22,41 @@ except ImportError:
 # ============================================================
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 PICOVOICE_ACCESS_KEY = os.getenv("PICOVOICE_ACCESS_KEY", "")
-# Ruta al modelo de wake word "Mia" entrenado en Picovoice Console (.ppn).
-# En la Pi usa el .ppn de plataforma "Raspberry Pi (Cortex-A)".
-# En Windows (dev) usa el .ppn de plataforma "Windows".
-PICOVOICE_KEYWORD_PATH = os.getenv("PICOVOICE_KEYWORD_PATH", "./mia.ppn")
+
+# --- Palabra de activación (wake word) ---
+# Palabra que despierta a MIA cuando el micrófono está en modo ABIERTO.
+WAKE_KEYWORD = os.getenv("WAKE_KEYWORD", "mia").strip().lower()
+WAKE_KEYWORD_DISPLAY = WAKE_KEYWORD.title()          # "Mia" (para mensajes)
+
+# Motor del wake word:
+#   "auto"      -> Porcupine si hay PICOVOICE_ACCESS_KEY, si no Vosk (por defecto)
+#   "vosk"      -> siempre Vosk (libre, sin cuenta ni claves)
+#   "porcupine" -> siempre Picovoice (requiere clave)
+WAKE_ENGINE = os.getenv("WAKE_ENGINE", "auto").strip().lower()
+
+# Modelo de Vosk (español, ~40 MB). Se baja una vez con descargar_modelo.py.
+VOSK_MODEL_PATH = os.getenv(
+    "VOSK_MODEL_PATH",
+    os.path.join(os.path.dirname(__file__), "models", "vosk-model-small-es-0.42"),
+)
+# Variantes de pronunciación que cuentan como la palabra clave. Vosk transcribe
+# fonéticamente, y "Mia" puede salir como "mía", "mia" o "mi a" según cómo se
+# diga; aceptamos todas para no perder activaciones.
+VOSK_WAKE_VARIANTS = [
+    v.strip().lower()
+    for v in os.getenv("VOSK_WAKE_VARIANTS", "mia,mía").split(",")
+    if v.strip()
+]
+# URL del modelo (se baja una sola vez, ~40 MB comprimido).
+VOSK_MODEL_URL = os.getenv(
+    "VOSK_MODEL_URL",
+    "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip",
+)
+
+# --- Picovoice (OPCIONAL: solo si quieres usar Porcupine en vez de Vosk) ---
+# (Opcional) .ppn personalizado entrenado en Picovoice Console. Si se define y
+# el archivo existe, tiene prioridad sobre WAKE_KEYWORD.
+PICOVOICE_KEYWORD_PATH = os.getenv("PICOVOICE_KEYWORD_PATH", "").strip()
 # Sensibilidad de detección del wake word (0-1). Más alto = más sensible (más falsos positivos).
 PICOVOICE_SENSITIVITY = float(os.getenv("PICOVOICE_SENSITIVITY", "0.5"))
 
@@ -44,11 +75,38 @@ LLM_MAX_TOKENS = 400         # Respuestas cortas -> menor latencia
 
 
 # ============================================================
+# ENTRADA DE VOZ: micrófono local (Pi) o micrófono del navegador (pruebas)
+# ============================================================
+# "local" -> wake word "Mia" + micrófono USB conectado a la Raspberry Pi.
+#            El audio de MIA sale por los parlantes USB de la Pi.
+# "web"   -> el navegador captura el micrófono y reproduce la voz. Útil para
+#            probar desde la laptop sin micro ni GPIO. Se activa con:
+#               python main.py --web
+INPUT_MODE = os.getenv("MIA_INPUT", "local").lower()
+
+
+# ============================================================
 # AUDIO (grabación local con pyaudio)
 # ============================================================
-# Índice del dispositivo de micrófono (None = predeterminado del sistema).
-# En la Pi con micro USB puede que necesites fijar el índice correcto.
-MICROPHONE_DEVICE_INDEX = None
+# Índice del dispositivo de micrófono.
+#   - Sin definir  -> se auto-detecta (prefiere un dispositivo USB).
+#   - Un número    -> se usa ese índice exacto.
+#   - "default"    -> el predeterminado del sistema.
+# Para ver la lista de dispositivos:  python listar_audio.py
+_env_mic = os.getenv("MIC_DEVICE_INDEX", "").strip()
+if _env_mic.lower() in ("", "auto"):
+    MICROPHONE_DEVICE_INDEX = "auto"
+elif _env_mic.lower() in ("default", "none"):
+    MICROPHONE_DEVICE_INDEX = None
+else:
+    try:
+        MICROPHONE_DEVICE_INDEX = int(_env_mic)
+    except ValueError:
+        MICROPHONE_DEVICE_INDEX = "auto"
+
+# Salida de audio para mpg123 (parlantes USB de la Pi). Ejemplos: "hw:1,0",
+# "plughw:1,0". Vacío = dispositivo predeterminado de ALSA.
+AUDIO_OUTPUT_DEVICE = os.getenv("AUDIO_OUTPUT_DEVICE", "").strip()
 # VAD por energía (RMS): umbral por encima del cual se considera "habla".
 MIN_ENERGY_THRESHOLD = 3500
 # Segundos de silencio tras hablar antes de dar por terminado el comando.
@@ -176,6 +234,62 @@ BOMBAS_CONFIG = {
     "pump_3": {"seg": 1.40, "ingrediente": "Tequila"},
     "pump_4": {"seg": 2.30, "ingrediente": "Licor de naranja"},
 }
+
+# --- Calibración persistida (la genera calibrar_bombas.py) ---
+# Si existe calibracion.json, sus posiciones PISAN a las de BOMBAS_CONFIG.
+# Así se calibra una vez en la Pi y todo el sistema (hardware, panel web,
+# recetas) usa las mismas coordenadas sin tocar el código.
+CALIBRACION_PATH = os.path.join(os.path.dirname(__file__), "calibracion.json")
+
+
+def cargar_calibracion():
+    """Aplica calibracion.json sobre BOMBAS_CONFIG si el archivo existe."""
+    import json
+
+    if not os.path.exists(CALIBRACION_PATH):
+        return False
+    try:
+        with open(CALIBRACION_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"[CONFIG][AVISO] calibracion.json ilegible ({e}); uso los valores del código.")
+        return False
+
+    posiciones = data.get("bombas", data)      # admite ambos formatos
+    aplicadas = 0
+    for pump, seg in posiciones.items():
+        if pump in BOMBAS_CONFIG:
+            try:
+                BOMBAS_CONFIG[pump]["seg"] = float(seg)
+                aplicadas += 1
+            except (TypeError, ValueError):
+                pass
+    if aplicadas:
+        print(f"[CONFIG] Calibración aplicada desde calibracion.json ({aplicadas} bombas).")
+    return bool(aplicadas)
+
+
+def guardar_calibracion(posiciones):
+    """Escribe calibracion.json con {pump: segundos} y actualiza la memoria."""
+    import json
+    from datetime import datetime
+
+    data = {
+        "generado": datetime.now().isoformat(timespec="seconds"),
+        "unidad": "segundos de recorrido del motor desde el origen",
+        "bombas": {p: round(float(s), 3) for p, s in posiciones.items()},
+    }
+    with open(CALIBRACION_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    for pump, seg in data["bombas"].items():
+        if pump in BOMBAS_CONFIG:
+            BOMBAS_CONFIG[pump]["seg"] = seg
+    return CALIBRACION_PATH
+
+
+cargar_calibracion()
+
 
 RECETAS_COCTELES = {
     "Paloma": {

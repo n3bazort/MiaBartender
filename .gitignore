@@ -22,3 +22,13 @@ temp_vision.jpg
 
 # Restos de arquitectura anterior (memoria vectorial)
 mia_memory/
+
+# Logs de arranque en Windows (dev)
+__mia_web.log
+__mia_web.err
+
+# Modelo de voz offline (~58 MB): lo baja instalar.sh, no se versiona
+models/
+
+# Calibración física: es propia de CADA máquina, se genera con calibrar_bombas.py
+calibracion.json

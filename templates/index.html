@@ -3,348 +3,1258 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#050508">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f5e6ff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="apple-touch-icon" href="/static/avatars/neutral.png">
     <title>MIA AI Avatar</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;600&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
-        body {
-            background-color: #050508;
-            color: white;
-            font-family: 'Inter', sans-serif;
-            height: 100vh;
+        /* ============================================================
+           MIA · Interfaz kiosco (optimizada para tablet)
+           ============================================================ */
+
+        :root {
+            --bg-1: #f6e9ff;
+            --bg-2: #e2f4ff;
+            --ink: #3b3b4f;
+            --ink-soft: #6b7280;
+            --ink-faint: #9ca3af;
+
+            --accent: #a855f7;
+            --accent-2: #60a5fa;
+            --accent-warm: #f59e0b;
+            --accent-lime: #84cc16;
+
+            --glass: rgba(255, 255, 255, 0.55);
+            --glass-strong: rgba(255, 255, 255, 0.75);
+            --glass-line: rgba(255, 255, 255, 0.8);
+            --shadow-sm: 0 6px 18px rgba(70, 40, 110, 0.08);
+            --shadow-md: 0 14px 40px rgba(70, 40, 110, 0.12);
+
+            --r-lg: 26px;
+            --r-md: 18px;
+            --r-sm: 12px;
+            --r-frame: clamp(18px, 2.2vw, 32px);
+
+            --gap: clamp(10px, 1.6vh, 20px);
+            --pad: clamp(12px, 2vw, 26px);
+            --pad-y: clamp(10px, 1.5vh, 18px);
+
+            --col-menu: clamp(210px, 19vw, 268px);
+            --col-rail: clamp(150px, 15vw, 196px);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
             margin: 0;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            overscroll-behavior: none;
         }
+
+        body {
+            background:
+                radial-gradient(120% 90% at 12% 0%, rgba(255, 255, 255, .85) 0%, transparent 55%),
+                linear-gradient(135deg, var(--bg-1), var(--bg-2));
+            color: var(--ink);
+            font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            touch-action: manipulation;
+            transition: background .8s ease;
+        }
+
+        /* Estado "sirviendo" – ambiente cálido de coctelería */
+        body.serving {
+            --accent: #f59e0b;
+            --accent-2: #fb923c;
+            background:
+                radial-gradient(120% 90% at 12% 0%, rgba(255, 255, 255, .85) 0%, transparent 55%),
+                linear-gradient(135deg, #fff6e6, #ffe7bd);
+        }
+
+        /* Acentos según el estado activo (lo escribe el observer de JS) */
+        body[data-state="escuchando"] { --accent: #84cc16; --accent-2: #22d3ee; }
+        body[data-state="pensando"]   { --accent: #a855f7; --accent-2: #818cf8; }
+        body[data-state="hablando"]   { --accent: #f59e0b; --accent-2: #f472b6; }
+        body[data-state="viendo"]     { --accent: #f472b6; --accent-2: #c084fc; }
 
         #particles-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at center, #111 0%, #000 100%);
-            z-index: -1;
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(38% 44% at 78% 18%, rgba(192, 132, 252, .22), transparent 70%),
+                radial-gradient(42% 48% at 18% 82%, rgba(96, 165, 250, .20), transparent 70%);
+            filter: blur(6px);
+            z-index: 0;
+            pointer-events: none;
+            animation: drift 18s ease-in-out infinite alternate;
         }
 
-        .mia-container {
+        @keyframes drift {
+            from { transform: translate3d(0, 0, 0) scale(1); }
+            to   { transform: translate3d(0, -2.5%, 0) scale(1.06); }
+        }
+
+        /* === UTILIDADES === */
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid var(--glass-line);
+            border-radius: var(--r-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .ic {
+            width: 1em;
+            height: 1em;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex: none;
+            display: block;
+        }
+
+        .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+        /* ============================================================
+           LAYOUT PRINCIPAL
+           ============================================================ */
+        .app {
+            position: relative;
+            z-index: 1;
+            height: 100dvh;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            gap: var(--gap);
+            padding: max(var(--pad-y), env(safe-area-inset-top)) var(--pad)
+                     max(var(--pad-y), env(safe-area-inset-bottom));
+        }
+
+        /* --- Barra superior --- */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 46px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 16px 9px 13px;
+            border-radius: 999px;
+            background: var(--glass);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: var(--shadow-sm);
+            font-size: clamp(.75rem, 1.1vw, .88rem);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--ink-faint);
+            box-shadow: 0 0 8px var(--ink-faint);
+            animation: beat 2.2s ease-in-out infinite;
+        }
+
+        @keyframes beat {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .55; transform: scale(.82); }
+        }
+
+        /* --- Escenario --- */
+        /* En reposo son 2 columnas (carta + avatar). La columna del riel solo
+           aparece mientras se está sirviendo un trago. */
+        .stage {
+            display: grid;
+            grid-template-columns: var(--col-menu) minmax(0, 1fr);
+            gap: var(--gap);
+            min-height: 0;
+            transition: grid-template-columns .45s cubic-bezier(.22, 1, .36, 1);
+        }
+
+        body.pouring .stage {
+            grid-template-columns: var(--col-menu) minmax(0, 1fr) var(--col-rail);
+        }
+
+        /* Columna izquierda: carta arriba, controles de audio debajo */
+        .side-left {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            width: 100%;
+            gap: var(--gap);
+            min-height: 0;
         }
 
-        .avatar-container {
-            width: 95vw;
-            max-width: 1400px;
-            /* Permitir que llene más el ancho de la pantalla */
-            max-height: 70vh;
+        .center {
             display: flex;
+            flex-direction: column;
+            gap: var(--gap);
+            min-height: 0;
+            min-width: 0;
+        }
+
+        /* ============================================================
+           AVATAR
+           ============================================================ */
+        .avatar-container {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            padding-bottom: 22px;
+            container-type: size;
+        }
+
+        /* Marco panorámico: los avatares son 16:9, así que el marco
+           usa esa proporción y toma todo el espacio disponible. */
+        .avatar-ring {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: var(--r-frame);
+            display: grid;
+            place-items: center;
+            animation: float 7s ease-in-out infinite;
+        }
+
+        @supports (width: 1cqh) {
+            .avatar-ring { width: min(100cqw, calc(100cqh * 16 / 9), 1150px); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+
+        /* Aura giratoria detrás del avatar */
+        .avatar-ring::before {
+            content: "";
+            position: absolute;
+            inset: -5%;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg,
+                var(--accent), var(--accent-2), #f9a8d4, var(--accent));
+            opacity: .38;
+            filter: blur(34px);
+            animation: spin 14s linear infinite;
+            transition: opacity .4s ease;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Marco de vidrio por encima de la imagen */
+        .avatar-ring::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            border-radius: var(--r-frame);
+            border: 3px solid rgba(255, 255, 255, .9);
+            box-shadow:
+                inset 0 2px 24px rgba(255, 255, 255, .5),
+                inset 0 -60px 70px -50px rgba(70, 40, 110, .35);
+            pointer-events: none;
         }
 
         #avatar-img {
+            position: relative;
+            z-index: 1;
             width: 100%;
             height: 100%;
-            max-height: 65vh;
-            object-fit: contain;
-            border-radius: 20px;
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
-            transition: box-shadow 0.3s, transform 0.12s ease-out;
+            object-fit: cover;
+            border-radius: var(--r-frame);
+            box-shadow: 0 0 40px rgba(192, 132, 252, .5);
+            transition: box-shadow .35s ease, transform .12s ease-out;
         }
 
-        .status-panel {
-            text-align: center;
-            margin-top: 10px;
-        }
-
-        #state-text {
-            font-family: 'Orbitron', sans-serif;
-            letter-spacing: 4px;
-            font-size: 1.2rem;
-            color: #00f0ff;
-        }
-
-        /* Unlock Overlay */
-        #unlock-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.9);
-            color: #00f0ff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            cursor: pointer;
-            font-size: 2rem;
-            text-align: center;
-            backdrop-filter: blur(5px);
-        }
-
-        #unlock-overlay span {
-            font-size: 1.2rem;
-            color: #aaa;
-            margin-top: 20px;
-        }
-
-        /* Riel del recorrido del vaso (lado derecho) */
-        #rail-panel {
-            position: fixed; right: 18px; top: 50%; transform: translateY(-50%);
-            z-index: 55; width: 132px; display: flex; flex-direction: column;
-            align-items: center; gap: 10px;
-            font-family: system-ui, "Segoe UI", sans-serif; color: #d8c8ae;
-            opacity: .55; transition: opacity .4s ease;
-        }
-        #rail-panel.active { opacity: 1; }
-        .rail-head {
-            font-size: .66rem; letter-spacing: .12em; text-transform: uppercase;
-            color: #e0a34e; text-align: center; font-weight: 600;
-        }
-        .rail {
-            position: relative; height: 58vh; width: 100%;
-            display: flex; justify-content: center;
-        }
-        /* Barra/carril vertical */
-        .rail-track {
-            position: absolute; left: 50%; transform: translateX(-50%);
-            top: 0; bottom: 0; width: 8px; border-radius: 8px;
-            background: linear-gradient(#2a2114, #1a140d);
-            box-shadow: inset 0 0 0 1px #3a2d1e;
-        }
-        .rail-markers { position: absolute; inset: 0; }
-        .marker {
-            position: absolute; left: 50%; transform: translateX(-50%);
-            display: flex; align-items: center; gap: 6px;
-        }
-        .marker .dot {
-            width: 14px; height: 14px; border-radius: 50%;
-            background: #3a2d1e; border: 2px solid #6a563a; flex: none;
-            transition: background .2s, border-color .2s, box-shadow .2s;
-        }
-        .marker .lbl {
-            position: absolute; right: 20px; white-space: nowrap;
-            font-size: .62rem; color: #b6a488; text-align: right;
-        }
-        .marker.pouring .dot {
-            background: #e0a34e; border-color: #ffd48a;
-            box-shadow: 0 0 12px #e0a34e; animation: pump-pulse .8s ease-in-out infinite;
-        }
-        .marker.done .dot { background: #6fae7a; border-color: #a8e0b0; }
-        @keyframes pump-pulse { 0%,100%{ box-shadow:0 0 8px #e0a34e; } 50%{ box-shadow:0 0 18px #ffce85; } }
-
-        /* Vaso que se desplaza por el carril */
-        #rail-cup {
-            position: absolute; left: 50%; bottom: 0;
-            transform: translate(-50%, 50%);
-            width: 40px; height: 52px;
-            border: 2px solid #cbb48f; border-top: none;
-            border-radius: 6px 6px 12px 12px;
-            background: rgba(255,255,255,.04); overflow: hidden;
-            transition: bottom .3s linear;
-            box-shadow: 0 4px 12px rgba(0,0,0,.4);
-        }
-        #cup-liquid {
-            position: absolute; left: 0; right: 0; bottom: 0; height: 0%;
-            background: linear-gradient(#f0b95e, #d97b2b);
-            transition: height .3s linear;
-        }
-        .rail-foot { text-align: center; }
-        #rail-drink { font-size: .74rem; color: #eadfce; max-width: 130px; }
-        #rail-pct {
-            font-size: 1.05rem; font-weight: 700; color: #e0a34e;
-            font-variant-numeric: tabular-nums;
-        }
-        @media (max-width: 640px) { #rail-panel { width: 96px; right: 6px; } .marker .lbl { display: none; } }
-
-        /* Drink Menu Overlay */
-        #drink-menu {
-            position: absolute;
-            left: 30px;
-            bottom: 120px;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(0, 240, 255, 0.2);
-            border-radius: 15px;
-            padding: 20px;
-            font-family: 'Orbitron', sans-serif;
-            color: #ccc;
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .menu-title {
-            color: #00f0ff;
-            font-size: 0.9rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-            border-bottom: 1px solid rgba(0, 240, 255, 0.3);
-            padding-bottom: 5px;
-        }
-
-        .menu-item {
-            font-size: 1rem;
-            transition: all 0.3s;
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-        }
-
-        .menu-item .pump {
-            color: #00f0ff;
-            font-weight: bold;
-        }
-
-        .menu-item.active {
-            color: #fff;
-            text-shadow: 0 0 10px #00f0ff;
-            transform: scale(1.05);
-            margin-left: 10px;
-        }
-
-        /* Responsive Layout */
-        @media (max-width: 600px) {
-            #drink-menu {
-                left: 10px;
-                bottom: 110px;
-                padding: 15px;
-                font-size: 0.8rem;
-            }
-
-            .subtitle-box {
-                min-height: 80px;
-                max-width: 600px;
-                text-align: center;
-                background: rgba(255, 255, 255, 0.05);
-                padding: 15px 30px;
-                border-radius: 20px;
-                backdrop-filter: blur(10px);
-            }
-        }
-
-        #subtitle-text {
-            font-size: 1.3rem;
-            line-height: 1.5;
-            color: #eee;
-        }
-
-        .controls {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            margin-top: 10px;
-        }
-
-        /* Orbe Central PTT */
-        #btn-ptt {
-            width: auto;
-            height: 60px;
-            padding: 0 30px;
-            border-radius: 30px;
-            border: none;
-            background: radial-gradient(circle at 30% 30%, #00f0ff, #0088ff);
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.5);
-            transition: all 0.3s;
-            outline: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #fff;
-            text-transform: uppercase;
-        }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.7);
-            }
-
-            70% {
-                box-shadow: 0 0 0 30px rgba(255, 51, 102, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(255, 51, 102, 0);
-            }
-        }
-
-        #btn-ptt.listening {
-            background: radial-gradient(circle at 30% 30%, #ff3366, #ff0055);
-            animation: pulse 1.5s infinite;
-            transform: scale(1.1);
-            box-shadow: 0 0 30px rgba(255, 51, 102, 0.8), inset 0 0 10px rgba(255, 255, 255, 0.3);
-        }
-
-        #btn-ptt.processing {
-            background: radial-gradient(circle at 30% 30%, #b200ff, #7700cc);
-            transform: scale(1.05);
-        }
-
-        /* Botón secundario Visión */
-        #btn-vision {
-            position: absolute;
-            right: -80px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background-color: transparent;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.6);
-            cursor: pointer;
-            transition: all 0.3s;
-            outline: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-
-        #btn-vision:hover {
-            border-color: #b200ff;
-            color: #b200ff;
-            box-shadow: 0 0 15px rgba(178, 0, 255, 0.4);
-            transform: scale(1.1);
+        /* Glow al servir – lo activa el JS */
+        .pouring-glow {
+            box-shadow: 0 0 60px #f59e0b !important;
         }
 
         @keyframes breathing {
-            0% {
-                transform: scale(1);
-                box-shadow: 0 0 30px rgba(178, 0, 255, 0.4);
-            }
-
-            50% {
-                transform: scale(1.02);
-                box-shadow: 0 0 50px rgba(178, 0, 255, 0.8);
-            }
-
-            100% {
-                transform: scale(1);
-                box-shadow: 0 0 30px rgba(178, 0, 255, 0.4);
-            }
+            0%   { transform: scale(1);    box-shadow: 0 0 30px rgba(168, 85, 247, .3); }
+            50%  { transform: scale(1.02); box-shadow: 0 0 60px rgba(168, 85, 247, .6); }
+            100% { transform: scale(1);    box-shadow: 0 0 30px rgba(168, 85, 247, .3); }
         }
 
-        .thinking-animation {
-            animation: breathing 2s ease-in-out infinite;
+        .thinking-animation { animation: breathing 2s ease-in-out infinite; }
+
+        /* --- Chip de estado (montado sobre el borde inferior del marco) --- */
+        .state-chip {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            z-index: 4;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border-radius: 999px;
+            background: var(--glass-strong);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--shadow-md);
+            white-space: nowrap;
+        }
+
+        .state-chip .pip {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            box-shadow: 0 0 10px var(--accent);
+            animation: beat 1.6s ease-in-out infinite;
+        }
+
+        #state-text {
+            margin: 0;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            letter-spacing: .18em;
+            font-size: clamp(.82rem, 1.35vw, 1.12rem);
+            color: var(--accent);
+        }
+
+        /* ============================================================
+           SUBTÍTULOS
+           ============================================================ */
+        .subtitle-box {
+            position: relative;
+            flex: none;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: clamp(12px, 1.6vh, 20px) clamp(20px, 3vw, 38px);
+            /* Altura fija: así el avatar nunca cambia de tamaño cuando
+               entra un subtítulo más largo o más corto. */
+            height: clamp(112px, 17.5vh, 172px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            text-align: center;
+            border-radius: var(--r-lg);
+            background: var(--glass-strong);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(20px) saturate(140%);
+            -webkit-backdrop-filter: blur(20px) saturate(140%);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            transition: border-color .4s ease, box-shadow .4s ease;
+        }
+
+        /* Borde superior de color según el estado */
+        .subtitle-box::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 12%;
+            right: 12%;
+            height: 3px;
+            border-radius: 0 0 6px 6px;
+            background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+            opacity: .9;
+            transition: background .5s ease;
+        }
+
+        .sub-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-size: clamp(.6rem, .95vw, .72rem);
+            font-weight: 700;
+            letter-spacing: .24em;
+            text-transform: uppercase;
+            color: var(--accent);
+            opacity: .9;
+            transition: opacity .3s ease;
+        }
+
+        .sub-label .ic { font-size: 1.15em; }
+
+        /* Quién está hablando: MIA por defecto, TÚ cuando es tu transcripción */
+        .sub-label .who::after { content: "MIA"; }
+        .subtitle-box.from-user .sub-label .who::after { content: "TÚ"; }
+        .subtitle-box.from-user .sub-label { color: var(--accent-2); }
+        .subtitle-box.from-user #subtitle-text { font-style: italic; }
+
+        /* Puntos animados mientras habla/piensa */
+        .sub-label .dots { display: none; gap: 3px; }
+        .sub-label .dots i {
+            width: 4px; height: 4px; border-radius: 50%;
+            background: currentColor; display: block;
+            animation: bounce 1.1s ease-in-out infinite;
+        }
+        .sub-label .dots i:nth-child(2) { animation-delay: .15s; }
+        .sub-label .dots i:nth-child(3) { animation-delay: .3s; }
+        @keyframes bounce { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+
+        body[data-state="hablando"] .sub-label .dots,
+        body[data-state="pensando"] .sub-label .dots { display: flex; }
+
+        #subtitle-text {
+            margin: 0;
+            font-size: clamp(1.05rem, 1.7vw, 1.45rem);
+            font-weight: 500;
+            line-height: 1.42;
+            letter-spacing: .002em;
+            color: var(--ink);
+            text-wrap: balance;
+            overflow-y: auto;
+            scrollbar-width: none;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, .6);
+            transition: font-size .18s ease;
+        }
+
+        #subtitle-text::-webkit-scrollbar { display: none; }
+
+        /* Reposo: subtítulo apagado */
+        .subtitle-box.is-idle { box-shadow: var(--shadow-sm); }
+        .subtitle-box.is-idle::before { opacity: .35; }
+        .subtitle-box.is-idle .sub-label { opacity: .4; }
+        .subtitle-box.is-idle #subtitle-text {
+            color: var(--ink-faint);
+            font-weight: 400;
+            letter-spacing: .3em;
+        }
+
+        /* Aparición del texto nuevo */
+        @keyframes sub-in {
+            from { opacity: 0; transform: translateY(7px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .subtitle-box.pop #subtitle-text { animation: sub-in .34s cubic-bezier(.22, 1, .36, 1); }
+
+        /* ============================================================
+           MENÚ DE TRAGOS
+           ============================================================ */
+        #drink-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: clamp(14px, 1.6vw, 20px);
+            border-radius: var(--r-lg);
+            background: var(--glass);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            box-shadow: var(--shadow-sm);
+            align-self: start;
+            max-height: 100%;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        #drink-menu::-webkit-scrollbar { display: none; }
+
+        .menu-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            font-size: clamp(.64rem, .95vw, .76rem);
+            font-weight: 800;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            padding-bottom: 10px;
+            margin-bottom: 2px;
+            border-bottom: 1px solid rgba(168, 85, 247, .18);
+        }
+
+        .menu-title .ic { font-size: 1.3em; }
+
+        .menu-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 11px 12px;
+            border-radius: var(--r-sm);
+            font-size: clamp(.86rem, 1.15vw, 1rem);
+            font-weight: 500;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .25s, transform .25s, color .25s, box-shadow .25s;
+        }
+
+        .menu-item .ic {
+            font-size: 1.25em;
+            color: var(--accent);
+            opacity: .55;
+            transition: opacity .25s, color .25s;
+        }
+
+        .menu-item .mi-text {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .menu-item .name { line-height: 1.2; }
+
+        .menu-item .ings {
+            font-size: .68rem;
+            line-height: 1.25;
+            color: var(--ink-faint);
+            font-weight: 400;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .menu-item.active .ings { color: #8b5cf6; }
+
+        .menu-item:hover { background: rgba(255, 255, 255, .6); }
+        .menu-item:active { transform: scale(.98); }
+
+        .menu-item.active {
+            color: #7c3aed;
+            font-weight: 700;
+            background: linear-gradient(120deg, rgba(168, 85, 247, .16), rgba(96, 165, 250, .12));
+            box-shadow: inset 0 0 0 1px rgba(168, 85, 247, .28);
+        }
+
+        .menu-item.active .ic { opacity: 1; color: var(--accent-warm); }
+
+        .menu-item.active::before {
+            content: "";
+            position: absolute;
+            left: -4px;
+            top: 18%;
+            bottom: 18%;
+            width: 4px;
+            border-radius: 4px;
+            background: linear-gradient(var(--accent), var(--accent-2));
+        }
+
+        /* ============================================================
+           RIEL DEL RECORRIDO DEL VASO
+           ============================================================ */
+        /* Solo visible mientras se sirve un trago */
+        #rail-panel { display: none; }
+
+        body.pouring #rail-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+            padding: clamp(12px, 1.4vw, 18px) 10px;
+            border-radius: var(--r-lg);
+            background: var(--glass);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            box-shadow: var(--shadow-sm);
+            color: var(--ink-soft);
+            min-height: 0;
+            opacity: .6;
+            transition: opacity .45s ease, box-shadow .45s ease;
+        }
+
+        #rail-panel.active {
+            opacity: 1;
+            box-shadow: var(--shadow-md), 0 0 0 1px rgba(245, 158, 11, .25);
+        }
+
+        .rail-head {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: .62rem;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--accent-warm);
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .rail-head .ic { font-size: 1.25em; }
+
+        /* Los márgenes dejan aire para el vaso y los puntos, que sobresalen
+           media altura por arriba y por abajo del riel. */
+        .rail {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 120px;
+            width: 100%;
+            margin: 30px 0;
+        }
+
+        .rail-track {
+            position: absolute;
+            left: 26px;
+            transform: translateX(-50%);
+            top: 0;
+            bottom: 0;
+            width: 10px;
+            border-radius: 10px;
+            background: linear-gradient(rgba(192, 132, 252, .28), rgba(96, 165, 250, .28));
+            box-shadow: inset 0 0 0 1px rgba(192, 132, 252, .22);
+        }
+
+        .rail-markers { position: absolute; inset: 0; }
+
+        /* translateY(50%) centra el punto justo en su posición del riel,
+           igual que el vaso, para que ambos coincidan. */
+        .marker {
+            position: absolute;
+            left: 26px;
+            transform: translate(-50%, 50%);
+            display: flex;
+            align-items: center;
+        }
+
+        .marker .dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .75);
+            border: 2px solid rgba(192, 132, 252, .45);
+            flex: none;
+            transition: background .25s, border-color .25s, box-shadow .25s, transform .25s;
+        }
+
+        .marker .lbl {
+            position: absolute;
+            left: 20px;
+            width: max-content;
+            max-width: calc(var(--col-rail) - 62px);
+            font-size: .64rem;
+            line-height: 1.2;
+            color: var(--ink-faint);
+            text-align: left;
+            transition: color .25s, font-weight .25s;
+        }
+
+        .marker.pouring .dot {
+            background: var(--accent-warm);
+            border-color: #fbbf24;
+            transform: scale(1.15);
+            box-shadow: 0 0 14px var(--accent-warm);
+            animation: pump-pulse .8s ease-in-out infinite;
+        }
+
+        .marker.pouring .lbl { color: #b45309; font-weight: 700; }
+        .marker.done .dot { background: var(--accent-lime); border-color: #a3e635; }
+        .marker.done .lbl { color: #4d7c0f; }
+
+        @keyframes pump-pulse {
+            0%, 100% { box-shadow: 0 0 8px var(--accent-warm); }
+            50%      { box-shadow: 0 0 20px #fbbf24; }
+        }
+
+        #rail-cup {
+            position: absolute;
+            left: 26px;
+            bottom: 0;
+            transform: translate(-50%, 50%);
+            width: 42px;
+            height: 54px;
+            border: 2px solid rgba(192, 132, 252, .55);
+            border-top: none;
+            border-radius: 6px 6px 14px 14px;
+            background: rgba(255, 255, 255, .55);
+            overflow: hidden;
+            transition: bottom .3s linear;
+            box-shadow: 0 6px 16px rgba(70, 40, 110, .14);
+        }
+
+        #cup-liquid {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(var(--accent-warm), #ea580c);
+            transition: height .3s linear;
+        }
+
+        #cup-liquid::after {
+            content: "";
+            position: absolute;
+            top: -3px;
+            left: 0;
+            right: 0;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .45);
+        }
+
+        .rail-foot { text-align: center; }
+
+        #rail-drink {
+            font-size: .74rem;
+            line-height: 1.25;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+
+        #rail-pct {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--accent-warm);
+            font-variant-numeric: tabular-nums;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* ============================================================
+           BOTON DE MICROFONO (unica entrada: MIA se maneja por voz)
+           ============================================================ */
+        .bottombar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(10px, 1.6vw, 18px);
+        }
+
+        .mic-wrap { position: relative; display: grid; place-items: center; }
+
+        #btn-mic {
+            position: relative;
+            width: clamp(76px, 8.6vh, 104px);
+            height: clamp(76px, 8.6vh, 104px);
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-size: clamp(28px, 3.4vh, 38px);
+            background: linear-gradient(135deg, #c084fc, #60a5fa);
+            box-shadow: 0 10px 30px rgba(147, 100, 240, .4),
+                        inset 0 2px 10px rgba(255, 255, 255, .35);
+            transition: transform .2s, box-shadow .25s, background .35s, opacity .25s;
+            touch-action: manipulation;
+        }
+
+        #btn-mic:active { transform: scale(.94); }
+
+        /* Anillo que late mientras esta grabando */
+        #btn-mic::after {
+            content: "";
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 3px solid rgba(244, 114, 182, .55);
+            opacity: 0;
+            transition: opacity .25s;
+        }
+
+        #btn-mic.recording {
+            background: linear-gradient(135deg, #f472b6, #fb923c);
+            box-shadow: 0 10px 34px rgba(244, 114, 182, .55);
+        }
+
+        #btn-mic.recording::after { opacity: 1; animation: mic-ring 1.4s ease-out infinite; }
+
+        @keyframes mic-ring {
+            0%   { transform: scale(1);    opacity: .75; }
+            100% { transform: scale(1.35); opacity: 0; }
+        }
+
+        /* Aro que sigue el volumen real del microfono */
+        #btn-mic .mic-level {
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, .9);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s;
+        }
+
+        #btn-mic.recording .mic-level { opacity: .95; }
+
+        #btn-mic[disabled] {
+            opacity: .45;
+            cursor: default;
+            background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+            box-shadow: none;
+        }
+
+        /* A la derecha del botón: así no se monta sobre los subtítulos y el
+           botón no se mueve aunque cambie el texto. */
+        .mic-hint {
+            position: absolute;
+            left: calc(100% + 16px);
+            top: 50%;
+            transform: translateY(-50%);
+            white-space: nowrap;
+            font-size: clamp(.72rem, 1.1vw, .85rem);
+            font-weight: 600;
+            letter-spacing: .03em;
+            color: var(--ink-soft);
+            background: var(--glass-strong);
+            border: 1px solid var(--glass-line);
+            padding: 7px 16px;
+            border-radius: 999px;
+            box-shadow: var(--shadow-sm);
+            pointer-events: none;
+            transition: color .25s;
+        }
+
+        .mic-hint.error { color: #b91c1c; }
+
+        /* --- Interruptor deslizante: Pulsar / Abierto --- */
+        .mode-switch {
+            position: absolute;
+            right: calc(100% + 16px);
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            padding: 4px;
+            border: 1px solid var(--glass-line);
+            border-radius: 999px;
+            background: var(--glass-strong);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .mode-switch .ms-opt {
+            position: relative;
+            z-index: 2;
+            padding: 8px 15px;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            color: var(--ink-faint);
+            transition: color .25s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .mode-switch .ms-knob {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            width: calc(50% - 4px);
+            border-radius: 999px;
+            background: linear-gradient(135deg, #c084fc, #60a5fa);
+            box-shadow: 0 3px 10px rgba(147, 100, 240, .4);
+            transition: transform .25s cubic-bezier(.22, 1, .36, 1), background .3s;
+            z-index: 1;
+        }
+
+        .mode-switch.open .ms-knob {
+            transform: translateX(100%);
+            background: linear-gradient(135deg, #34d399, #22d3ee);
+            box-shadow: 0 3px 10px rgba(52, 211, 153, .4);
+        }
+
+        .mode-switch:not(.open) .ms-push,
+        .mode-switch.open .ms-open { color: #fff; }
+
+        /* Modo Raspberry Pi: no hay botón, escucha sola la palabra de activación */
+        .wake-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 28px;
+            border-radius: 999px;
+            font-size: clamp(.9rem, 1.4vw, 1.1rem);
+            color: var(--ink-soft);
+            background: var(--glass-strong);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .wake-hint .ic { font-size: 1.5em; color: var(--accent); }
+        .wake-hint b { color: var(--accent); font-weight: 800; }
+
+        /* ============================================================
+           CONTROLES DE VOLUMEN (debajo de la carta)
+           Al mantener pulsado aparece una barra vertical para subir/bajar.
+           ============================================================ */
+        .controls-touch {
+            display: flex;
+            justify-content: center;
+            gap: clamp(10px, 1.2vw, 18px);
+            padding: 12px;
+            border-radius: var(--r-lg);
+            background: var(--glass);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            box-shadow: var(--shadow-sm);
+            flex: none;
+        }
+
+        .control {
+            width: clamp(58px, 6vw, 72px);
+            height: clamp(58px, 6vw, 72px);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .65);
+            border: 1px solid rgba(255, 255, 255, .9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 2px;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform .2s, box-shadow .2s, background .2s;
+            touch-action: none;
+        }
+
+        .control:hover { box-shadow: 0 6px 20px rgba(192, 132, 252, .3); }
+
+        /* Resaltado mientras se mantiene pulsado (la burbuja no debe recortarse) */
+        .control.tuning {
+            overflow: visible;
+            transform: scale(1.06);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, .3), var(--shadow-md);
+        }
+
+        .control .icon {
+            font-size: clamp(20px, 2.2vw, 25px);
+            color: #7c3aed;
+            z-index: 2;
+            pointer-events: none;
+            transition: opacity .2s, color .2s;
+        }
+
+        .control .vol-label {
+            font-size: 10px;
+            color: var(--ink-soft);
+            z-index: 2;
+            pointer-events: none;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        /* Nivel en reposo: relleno dentro del circulo */
+        .control .level {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(#c084fc, #60a5fa);
+            border-radius: 0 0 50% 50% / 0 0 100% 100%;
+            opacity: .3;
+            pointer-events: none;
+            transition: height .1s ease-out;
+            z-index: 1;
+        }
+
+        /* --- Barra vertical emergente --- */
+        .vol-pop {
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 14px);
+            transform: translate(-50%, 10px) scaleY(.55);
+            transform-origin: bottom center;
+            width: 42px;
+            height: 170px;
+            border-radius: 22px;
+            background: var(--glass-strong);
+            border: 1px solid var(--glass-line);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 90;
+            transition: opacity .18s ease, transform .22s cubic-bezier(.22, 1, .36, 1);
+        }
+
+        .control.tuning .vol-pop {
+            opacity: 1;
+            transform: translate(-50%, 0) scaleY(1);
+        }
+
+        .vol-pop .vol-fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 50%;
+            background: linear-gradient(#c084fc, #60a5fa);
+            transition: height .06s linear;
+        }
+
+        .vol-pop .vol-pct {
+            position: absolute;
+            top: 9px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: .62rem;
+            font-weight: 800;
+            color: var(--ink-soft);
+            font-variant-numeric: tabular-nums;
+            z-index: 2;
+        }
+
+        .control.muted .level { height: 0% !important; }
+        .control.muted .icon { opacity: .35; color: var(--ink-faint); }
+        .control.muted .vol-label { opacity: .5; }
+
+        .control.muted::after {
+            content: "";
+            position: absolute;
+            width: 62%;
+            height: 2px;
+            border-radius: 2px;
+            background: #ef4444;
+            transform: rotate(-45deg);
+            z-index: 3;
+            opacity: .8;
+        }
+
+        /* ============================================================
+           PANEL DE SONIDOS INSTANTÁNEOS
+           ============================================================ */
+        #instant-panel {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        #instant-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-line);
+            cursor: pointer;
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            color: var(--accent);
+            font-size: 20px;
+            display: grid;
+            place-items: center;
+            box-shadow: var(--shadow-sm);
+            transition: transform .2s, color .2s;
+        }
+
+        #instant-toggle:active { transform: scale(.9); }
+        #instant-toggle .ic-off { display: none; }
+        #instant-toggle.open { color: #7c3aed; }
+        #instant-toggle.open .ic-on { display: none; }
+        #instant-toggle.open .ic-off { display: block; }
+
+        /* Flotante: al abrirse no altera la altura de la barra superior */
+        #instant-buttons {
+            position: absolute;
+            top: 52px;
+            right: 0;
+            z-index: 80;
+            display: none;
+            flex-direction: row;
+            gap: 6px;
+            opacity: 0;
+            transition: opacity .3s ease;
+        }
+
+        #instant-buttons iframe {
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ============================================================
+           OVERLAY DE DESBLOQUEO
+           ============================================================ */
+        #unlock-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(246, 233, 255, .94), rgba(226, 244, 255, .94));
+            color: var(--accent);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            z-index: 9999;
+            cursor: pointer;
+            text-align: center;
+            padding: 24px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        .unlock-badge {
+            width: clamp(110px, 16vh, 168px);
+            height: clamp(110px, 16vh, 168px);
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            margin-bottom: 22px;
+            color: #fff;
+            font-size: clamp(40px, 6vh, 62px);
+            background: linear-gradient(135deg, #c084fc, #60a5fa);
+            box-shadow: 0 18px 50px rgba(147, 100, 240, .45);
+            animation: tap-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes tap-pulse {
+            0%, 100% { transform: scale(1);    box-shadow: 0 18px 50px rgba(147, 100, 240, .45); }
+            50%      { transform: scale(1.06); box-shadow: 0 22px 70px rgba(147, 100, 240, .6); }
+        }
+
+        #unlock-overlay h2 {
+            margin: 0;
+            color: #6d28d9;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: clamp(1.2rem, 3.4vw, 2.1rem);
+            letter-spacing: .04em;
+        }
+
+        #unlock-overlay span {
+            font-size: clamp(.85rem, 1.6vw, 1.05rem);
+            color: var(--ink-faint);
+            margin-top: 10px;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+
+        /* Tablet vertical / pantallas medianas: carta arriba en fila */
+        @media (max-width: 1023px) {
+            .stage {
+                grid-template-columns: minmax(0, 1fr);
+                grid-template-rows: auto minmax(0, 1fr);
+                grid-template-areas:
+                    "menu"
+                    "main";
+            }
+
+            body.pouring .stage {
+                grid-template-columns: minmax(0, 1fr) var(--col-rail);
+                grid-template-areas:
+                    "menu menu"
+                    "main rail";
+            }
+
+            .side-left {
+                grid-area: menu;
+                flex-direction: row;
+                align-items: stretch;
+            }
+
+            #drink-menu {
+                flex: 1;
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 12px;
+                overflow-x: auto;
+                border-radius: var(--r-md);
+                align-self: stretch;
+            }
+
+            .controls-touch { border-radius: var(--r-md); padding: 8px; }
+
+            .center     { grid-area: main; }
+            #rail-panel { grid-area: rail; }
+
+            .menu-title {
+                border-bottom: none;
+                border-right: 1px solid rgba(168, 85, 247, .18);
+                padding: 0 12px 0 2px;
+                margin: 0;
+                flex: none;
+            }
+
+            .menu-title .label { display: none; }
+            .menu-title .ic { font-size: 1.6em; }
+
+            .menu-item {
+                flex: none;
+                padding: 8px 12px;
+            }
+
+            .menu-item .ings { display: none; }
+            .menu-item .name { white-space: nowrap; }
+            .menu-item.active::before { display: none; }
+        }
+
+        /* Tablet vertical: riel mas angosto */
+        @media (max-width: 820px) {
+            :root { --col-rail: 116px; }
+            .marker .lbl { display: none; }
+            .rail-track, .marker, #rail-cup { left: 50%; }
+            .rail-head .label { display: none; }
+        }
+
+        /* Telefono */
+        @media (max-width: 600px) {
+            :root { --col-rail: 84px; --gap: 10px; --pad: 10px; }
+
+            .avatar-container { padding-bottom: 20px; }
+            .subtitle-box { height: 92px; padding: 10px 16px; }
+            #subtitle-text { font-size: 1rem; }
+            .state-chip { padding: 8px 14px; }
+            .control { width: 52px; height: 52px; }
+            .control .vol-label { display: none; }
+            #rail-cup { width: 34px; height: 44px; }
+            #rail-pct { font-size: 1rem; }
+            #instant-buttons { display: none !important; }
+        }
+
+        /* Pantallas muy anchas / TV */
+        @media (min-width: 1600px) {
+            :root { --col-menu: 300px; --col-rail: 220px; }
+            .subtitle-box { max-width: 1050px; }
+        }
+
+        /* Alturas reducidas (tablet horizontal comprimida) */
+        @media (max-height: 620px) {
+            .subtitle-box { height: 88px; padding: 8px 18px; }
+            .avatar-container { padding-bottom: 20px; }
+            .control { width: 54px; height: 54px; }
+            .control .vol-label { display: none; }
+            .vol-pop { height: 140px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
+            }
         }
     </style>
 </head>
@@ -352,741 +1262,1388 @@
 <body>
     <div id="particles-bg"></div>
 
-    <!-- Drink Menu Overlay -->
-    <div id="drink-menu">
-        <div class="menu-title">Drinks Menu</div>
-        <div class="menu-item" id="menu-tormenta">
-            <span>Paloma</span> <span class="pump">[1]</span>
-        </div>
-        <div class="menu-item" id="menu-brisa">
-            <span>Margarita con toronja</span> <span class="pump">[2]</span>
-        </div>
-        <div class="menu-item" id="menu-atardecer">
-            <span>Tequila Citrus</span> <span class="pump">[3]</span>
-        </div>
-        <div class="menu-item" id="menu-bandera">
-            <span>Paloma Dulce</span> <span class="pump">[4]</span>
-        </div>
+    <!-- ===== Sprite de iconos ===== -->
+    <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <symbol id="i-cocktail" viewBox="0 0 24 24">
+                <path d="M4 4h16l-8 8-8-8Z" />
+                <path d="M12 12v7" />
+                <path d="M8 21h8" />
+                <path d="M19 6.5 16.5 9" />
+            </symbol>
+            <symbol id="i-menu-list" viewBox="0 0 24 24">
+                <path d="M3 5h18" /><path d="M3 12h18" /><path d="M3 19h12" />
+            </symbol>
+            <symbol id="i-music" viewBox="0 0 24 24">
+                <path d="M9 18V5l11-2v13" />
+                <circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" />
+            </symbol>
+            <symbol id="i-mic" viewBox="0 0 24 24">
+                <rect x="9" y="2" width="6" height="12" rx="3" />
+                <path d="M5 11a7 7 0 0 0 14 0" />
+                <path d="M12 18v4" /><path d="M8 22h8" />
+            </symbol>
+            <symbol id="i-send" viewBox="0 0 24 24">
+                <path d="m3 3 18 9-18 9 4-9-4-9Z" /><path d="M7 12h14" />
+            </symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+            </symbol>
+            <symbol id="i-eye-off" viewBox="0 0 24 24">
+                <path d="M10.6 5.2A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1" />
+                <path d="M6.2 6.7A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.5-1.1" />
+                <path d="m3 3 18 18" />
+            </symbol>
+            <symbol id="i-route" viewBox="0 0 24 24">
+                <circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" />
+                <path d="M9 19h6a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6" />
+            </symbol>
+            <symbol id="i-chat" viewBox="0 0 24 24">
+                <path d="M21 15a3 3 0 0 1-3 3H8l-5 4V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9Z" />
+            </symbol>
+            <symbol id="i-speaker" viewBox="0 0 24 24">
+                <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+                <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+                <path d="M19 6a9 9 0 0 1 0 12" />
+            </symbol>
+            <symbol id="i-touch" viewBox="0 0 24 24">
+                <path d="M9 11V6a2 2 0 1 1 4 0v9" />
+                <path d="M13 11a2 2 0 1 1 4 0v2a7 7 0 0 1-7 7 6 6 0 0 1-5-3l-2.5-4a2 2 0 0 1 3.2-2.3L7 13" />
+            </symbol>
+        </defs>
+    </svg>
+
+    <!-- ===== Overlay de desbloqueo ===== -->
+    <div id="unlock-overlay">
+        <div class="unlock-badge"><svg class="ic" style="width:1em;height:1em"><use href="#i-touch" /></svg></div>
+        <h2>Toca la pantalla para iniciar MIA</h2>
+        <span>Esto desbloquea el sistema de audio</span>
     </div>
 
-    <!-- Eliminamos el video oculto y canvas ya que usaremos la cámara local de la laptop -->
-    <div class="mia-container">
-        <div id="unlock-overlay">
-            <h2>Toca la pantalla para iniciar MIA</h2>
-            <span>(Esto desbloquea el sistema de audio)</span>
-        </div>
+    <div class="app">
+        <!-- ===== Barra superior ===== -->
+        <header class="topbar">
+            <div class="status-pill">
+                <span class="status-dot" id="status-dot"></span>
+                <span class="status-text" id="status-label">Conectando...</span>
+            </div>
 
-        <div class="header">
-            <div class="status-dot" id="status-dot"></div>
-            <div class="status-text" id="status-label">Conectando...</div>
-        </div>
-        <!-- Renderizado de Avatar en Imagen PNG -->
-        <div class="avatar-container" id="mia-face">
-            <img id="avatar-img" src="/static/avatars/neutral.png" alt="MIA Avatar">
-        </div>
-
-        <div class="status-panel">
-            <h2 id="state-text">DURMIENDO</h2>
-        </div>
-
-        <div class="subtitle-box" id="subtitle-box">
-            <p id="subtitle-text">...</p>
-        </div>
-
-        <!-- Barra de simulación por texto (útil para probar sin micrófono) -->
-        <div id="sim-bar" style="position:fixed; bottom:76px; left:50%; transform:translateX(-50%);
-                    z-index:60; display:flex; gap:8px; width:92%; max-width:480px;">
-            <input id="sim-input" type="text" placeholder="Escríbele a MIA (ej. preparame una paloma)"
-                   style="flex:1; padding:12px 14px; border-radius:10px; border:1px solid #444;
-                          background:#111; color:#eee; font-size:15px; outline:none;">
-            <button id="sim-send"
-                    style="padding:12px 18px; border-radius:10px; border:none; cursor:pointer;
-                           background:#00ff88; color:#052; font-weight:bold; font-size:15px;">
-                Enviar
-            </button>
-        </div>
-
-        <!-- Reproductor de música de espera (suena mientras se dispensa) -->
-        <audio id="bg-music" loop preload="auto"></audio>
-
-        <!-- Controles de audio: música (mute + volumen) y voz (volumen) -->
-        <div id="audio-controls"
-             style="position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:60;
-                    display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
-                    gap:14px; width:92%; max-width:480px; padding:10px 14px;
-                    background:#111; border:1px solid #333; border-radius:12px; font-size:13px; color:#bbb;">
-            <button id="music-mute" title="Silenciar música"
-                    style="background:#222; color:#eee; border:1px solid #444; border-radius:8px;
-                           padding:8px 12px; cursor:pointer; font-size:16px;">🔊</button>
-            <label style="display:flex; align-items:center; gap:6px;">
-                🎵 Música
-                <input id="music-vol" type="range" min="0" max="100" step="1" style="width:90px;">
-            </label>
-            <label style="display:flex; align-items:center; gap:6px;">
-                🗣️ Voz
-                <input id="voice-vol" type="range" min="0" max="100" step="1" style="width:90px;">
-            </label>
-        </div>
-
-        <!-- Riel del recorrido del vaso (llenado en tiempo real) -->
-        <div id="rail-panel">
-            <div class="rail-head">Recorrido del vaso</div>
-            <div class="rail">
-                <div class="rail-track"></div>
-                <div class="rail-markers" id="rail-markers"></div>
-                <div id="rail-cup" title="Vaso">
-                    <div id="cup-liquid"></div>
+            <div id="instant-panel">
+                <div id="instant-buttons">
+                    <iframe src="https://www.myinstants.com/instant/fx-kici-ya-esta-terminado-98506/embed/"
+                            width="94" height="170" frameborder="0" scrolling="no" title="FX 1"></iframe>
+                    <iframe src="https://www.myinstants.com/instant/du-bist-gut-genug-22336/embed/"
+                            width="94" height="170" frameborder="0" scrolling="no" title="FX 2"></iframe>
                 </div>
+                <button id="instant-toggle" onclick="toggleInstants()" title="Mostrar/Ocultar sonidos">
+                    <svg class="ic ic-on"><use href="#i-eye" /></svg>
+                    <svg class="ic ic-off"><use href="#i-eye-off" /></svg>
+                </button>
             </div>
-            <div class="rail-foot">
-                <div id="rail-drink">En espera</div>
-                <div id="rail-pct">0%</div>
+        </header>
+
+        <!-- ===== Escenario ===== -->
+        <main class="stage">
+            <!-- Columna izquierda: carta de tragos + controles de audio -->
+            <aside class="side-left">
+                <div id="drink-menu">
+                    <div class="menu-title">
+                        <svg class="ic"><use href="#i-menu-list" /></svg>
+                        <span class="label">Carta de tragos</span>
+                    </div>
+                    {% for d in drinks|default([]) %}
+                    <div class="menu-item" data-drink="{{ d.nombre }}">
+                        <svg class="ic"><use href="#i-cocktail" /></svg>
+                        <div class="mi-text">
+                            <span class="name">{{ d.nombre }}</span>
+                            <span class="ings">{% for ing in d.ingredientes %}{{ ing.split('(')[0]|trim }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Volumen: mantener pulsado para ver la barra vertical -->
+                <div id="audio-controls" class="controls-touch">
+                    <div class="control" id="music-control" title="Mantén pulsado para ajustar el volumen">
+                        <div class="vol-pop"><div class="vol-pct">40%</div><div class="vol-fill"></div></div>
+                        <div class="icon"><svg class="ic"><use href="#i-music" /></svg></div>
+                        <div class="vol-label">Música</div>
+                        <div class="level"></div>
+                    </div>
+
+                    <div class="control" id="voice-control" title="Mantén pulsado para ajustar el volumen">
+                        <div class="vol-pop"><div class="vol-pct">100%</div><div class="vol-fill"></div></div>
+                        <div class="icon"><svg class="ic"><use href="#i-speaker" /></svg></div>
+                        <div class="vol-label">Voz</div>
+                        <div class="level"></div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Columna central: avatar + subtítulos -->
+            <section class="center">
+                <div class="avatar-container" id="mia-face">
+                    <div class="avatar-ring">
+                        <img id="avatar-img" src="/static/avatars/neutral.png" alt="MIA Avatar">
+                        <div class="state-chip">
+                            <span class="pip"></span>
+                            <h2 id="state-text">DURMIENDO</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="subtitle-box is-idle" id="subtitle-box">
+                    <div class="sub-label">
+                        <svg class="ic"><use href="#i-chat" /></svg>
+                        <span class="who"></span>
+                        <span class="dots"><i></i><i></i><i></i></span>
+                    </div>
+                    <p id="subtitle-text">...</p>
+                </div>
+            </section>
+
+            <!-- Riel del recorrido del vaso -->
+            <aside id="rail-panel">
+                <div class="rail-head">
+                    <svg class="ic"><use href="#i-route" /></svg>
+                    <span class="label">Recorrido</span>
+                </div>
+                <div class="rail">
+                    <div class="rail-track"></div>
+                    <div class="rail-markers" id="rail-markers"></div>
+                    <div id="rail-cup" title="Vaso">
+                        <div id="cup-liquid"></div>
+                    </div>
+                </div>
+                <div class="rail-foot">
+                    <div id="rail-drink">En espera</div>
+                    <div id="rail-pct">0%</div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- ===== Barra inferior: micrófono (MIA se maneja por voz) ===== -->
+        <footer class="bottombar">
+            {% if web_mic|default(true) %}
+            <!-- Pruebas desde la laptop: el navegador capta el micrófono -->
+            <div class="mic-wrap">
+                <button id="mic-mode" class="mode-switch" type="button"
+                        title="Pulsar para hablar o micrófono siempre abierto">
+                    <span class="ms-knob"></span>
+                    <span class="ms-opt ms-push">Pulsar</span>
+                    <span class="ms-opt ms-open">Abierto</span>
+                </button>
+                <button id="btn-mic" type="button" title="Hablar con MIA">
+                    <span class="mic-level"></span>
+                    <svg class="ic"><use href="#i-mic" /></svg>
+                </button>
+                <div class="mic-hint" id="mic-hint">Toca para hablar</div>
             </div>
-        </div>
+            {% else %}
+            <!-- Raspberry Pi: el micrófono USB escucha sola la palabra "Mia" -->
+            <div class="wake-hint">
+                <svg class="ic"><use href="#i-mic" /></svg>
+                <span>Di <b>«{{ wake_word|default('Alexa') }}»</b> para hablarme</span>
+            </div>
+            {% endif %}
+        </footer>
+    </div>
 
-        <!-- Datos inyectados por el servidor (audio y bombas) -->
-        <script>
-            window.MIA_MUSIC_TRACKS = {{ music_tracks|tojson if music_tracks is defined else '[]' }};
-            window.MIA_MUSIC_VOLUME = {{ music_volume if music_volume is defined else 0.4 }};
-            window.MIA_VOICE_VOLUME = {{ voice_volume if voice_volume is defined else 1.0 }};
-            window.MIA_PUMPS = {{ pumps|tojson if pumps is defined else '[]' }};
-            window.MIA_MAX_SEG = {{ max_seg if max_seg is defined else 1 }};
-        </script>
+    <!-- Reproductor de música de espera (suena mientras se dispensa) -->
+    <audio id="bg-music" loop preload="auto"></audio>
 
-        <!-- SOCKET IO -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-
-        <script>
-            const socket = io();
-
-            const stateText = document.getElementById('state-text');
-            const subtitleText = document.getElementById('subtitle-text');
-            const avatarImg = document.getElementById('avatar-img');
-            const statusDot = document.getElementById('status-dot');
-            const statusLabel = document.getElementById('status-label');
-
-            // --- Estado de conexión Socket.IO ---
-            socket.on('connect', () => {
-                statusDot.style.background = '#00ff88';
-                statusDot.style.boxShadow = '0 0 8px #00ff88';
-                statusLabel.textContent = 'MIA Conectada';
-                statusLabel.style.color = '#00ff88';
-                // Pedir al servidor que emita el estado actual
-                socket.emit('request_state');
-            });
-
-            socket.on('disconnect', () => {
-                statusDot.style.background = '#ff3366';
-                statusDot.style.boxShadow = '0 0 8px #ff3366';
-                statusLabel.textContent = 'MIA Desconectada';
-                statusLabel.style.color = '#ff3366';
-            });
-
-            // --- Simulación por texto (modo simulador web) ---
-            const simInput = document.getElementById('sim-input');
-            const simSend = document.getElementById('sim-send');
-            function enviarComandoSimulado() {
-                const txt = simInput.value.trim();
-                if (!txt) return;
-                socket.emit('sim_command', { text: txt });
-                simInput.value = '';
+    <script>
+        // --- Panel de sonidos instantáneos ---
+        let instantsVisible = false;
+        function toggleInstants() {
+            const container = document.getElementById('instant-buttons');
+            const btn = document.getElementById('instant-toggle');
+            instantsVisible = !instantsVisible;
+            if (instantsVisible) {
+                container.style.display = 'flex';
+                requestAnimationFrame(() => { container.style.opacity = '1'; });
+                btn.classList.add('open');
+            } else {
+                container.style.opacity = '0';
+                btn.classList.remove('open');
+                setTimeout(() => { container.style.display = 'none'; }, 300);
             }
-            if (simSend) simSend.addEventListener('click', enviarComandoSimulado);
-            if (simInput) simInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') enviarComandoSimulado();
-            });
+        }
+    </script>
 
-            // --- Música de espera + controles de volumen ---
-            const bgMusic = document.getElementById('bg-music');
-            const musicMuteBtn = document.getElementById('music-mute');
-            const musicVol = document.getElementById('music-vol');
-            const voiceVol = document.getElementById('voice-vol');
+    <!-- Datos inyectados por el servidor (audio y bombas) -->
+    <script>
+        window.MIA_MUSIC_TRACKS = {{ music_tracks|tojson if music_tracks is defined else '[]' }};
+        window.MIA_MUSIC_VOLUME = {{ music_volume if music_volume is defined else 0.4 }};
+        window.MIA_VOICE_VOLUME = {{ voice_volume if voice_volume is defined else 1.0 }};
+        window.MIA_PUMPS = {{ pumps|tojson if pumps is defined else '[]' }};
+        window.MIA_WAKE_WORD = {{ wake_word|default('Mia')|tojson }};
+        window.MIA_MAX_SEG = {{ max_seg if max_seg is defined else 1 }};
+    </script>
 
-            // Volumen de la voz (aplicado a cada fragmento de audio de MIA).
-            let voiceVolume = (typeof window.MIA_VOICE_VOLUME === 'number') ? window.MIA_VOICE_VOLUME : 1.0;
+    <!-- SOCKET IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 
-            // Inicializar controles con los valores del servidor.
-            const initMusicVol = (typeof window.MIA_MUSIC_VOLUME === 'number') ? window.MIA_MUSIC_VOLUME : 0.4;
-            if (bgMusic) bgMusic.volume = initMusicVol;
-            if (musicVol) musicVol.value = Math.round(initMusicVol * 100);
-            if (voiceVol) voiceVol.value = Math.round(voiceVolume * 100);
+    <script>
+        const socket = io();
 
-            function pickRandomTrack() {
-                const tracks = window.MIA_MUSIC_TRACKS || [];
-                if (!tracks.length) return null;
-                return tracks[Math.floor(Math.random() * tracks.length)];
+        const stateText = document.getElementById('state-text');
+        const subtitleText = document.getElementById('subtitle-text');
+        const subtitleBox = document.getElementById('subtitle-box');
+        const avatarImg = document.getElementById('avatar-img');
+        const statusDot = document.getElementById('status-dot');
+        const statusLabel = document.getElementById('status-label');
+
+        // --- Reflejar estado y subtítulos en la interfaz (colores + animación) ---
+        function syncStateAccent() {
+            const raw = (stateText.textContent || '').trim().toLowerCase();
+            document.body.dataset.state = raw
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')   // quitar acentos
+                .replace(/[^a-z]/g, '');
+        }
+
+        // Encoge la letra lo justo para que el subtítulo completo quepa
+        // en la caja (altura fija) sin barra de scroll.
+        function fitSubtitle() {
+            subtitleText.style.fontSize = '';
+            const base = parseFloat(getComputedStyle(subtitleText).fontSize) || 18;
+            let size = base;
+            let guard = 0;
+            while (subtitleText.scrollHeight > subtitleText.clientHeight + 1
+                   && size > base * 0.68 && guard++ < 14) {
+                size -= base * 0.05;
+                subtitleText.style.fontSize = size + 'px';
             }
+        }
 
-            socket.on('music_start', () => {
-                if (!bgMusic) return;
-                const track = pickRandomTrack();
-                if (!track) return;
-                bgMusic.src = track;
-                bgMusic.play().catch(e => console.warn('No se pudo iniciar la música:', e));
-            });
+        function syncSubtitle() {
+            const t = (subtitleText.textContent || '').trim();
+            subtitleBox.classList.toggle('is-idle', t === '' || t === '...');
+            subtitleBox.classList.remove('pop');
+            void subtitleBox.offsetWidth;   // reinicia la animación
+            subtitleBox.classList.add('pop');
+            subtitleText.scrollTop = 0;
+            fitSubtitle();
+        }
 
-            socket.on('music_stop', () => {
-                if (!bgMusic) return;
-                bgMusic.pause();
-                bgMusic.currentTime = 0;
-            });
+        window.addEventListener('resize', fitSubtitle);
 
-            // Botón de mute de la música.
-            if (musicMuteBtn) musicMuteBtn.addEventListener('click', () => {
-                if (!bgMusic) return;
-                bgMusic.muted = !bgMusic.muted;
-                musicMuteBtn.textContent = bgMusic.muted ? '🔇' : '🔊';
-            });
+        // ============================================================
+        // Subtítulos línea por línea (estilo karaoke), sincronizados
+        // con la duración del audio del fragmento que se reproduce.
+        // ============================================================
+        const SUB_MAX_CHARS = 46;   // largo máximo de cada línea
+        let subTimer = null;
 
-            // Slider de volumen de la música (en vivo).
-            if (musicVol) musicVol.addEventListener('input', () => {
-                if (bgMusic) bgMusic.volume = musicVol.value / 100;
-            });
+        function splitIntoCues(text, maxLen) {
+            const clean = (text || '').replace(/\s+/g, ' ').trim();
+            if (!clean) return [];
 
-            // Slider de volumen de la voz (se aplica al audio en curso y a los siguientes).
-            if (voiceVol) voiceVol.addEventListener('input', () => {
-                voiceVolume = voiceVol.value / 100;
-                if (typeof currentAudio !== 'undefined' && currentAudio) {
-                    currentAudio.volume = voiceVolume;
+            const cues = [];
+            let cur = '';
+            clean.split(' ').forEach(w => {
+                const cand = cur ? cur + ' ' + w : w;
+                if (cand.length > maxLen && cur) {
+                    cues.push(cur);
+                    cur = w;
+                } else {
+                    cur = cand;
+                }
+                // Corta también en puntuación fuerte para respetar las pausas
+                if (/[.!?…:;]$/.test(cur) && cur.length >= maxLen * 0.45) {
+                    cues.push(cur);
+                    cur = '';
                 }
             });
+            if (cur) cues.push(cur);
 
-            // === Riel del recorrido del vaso (mimetiza el hardware real) ===
-            const railPanel = document.getElementById('rail-panel');
-            const railMarkers = document.getElementById('rail-markers');
-            const railCup = document.getElementById('rail-cup');
-            const cupLiquid = document.getElementById('cup-liquid');
-            const railDrink = document.getElementById('rail-drink');
-            const railPct = document.getElementById('rail-pct');
-            let railMaxSeg = Number(window.MIA_MAX_SEG) || 1;
-            const markerEls = {};   // pump -> elemento marcador
-
-            function railFrac(seg) {
-                // seg=0 -> abajo (0%), seg=max -> arriba (100%)
-                if (railMaxSeg <= 0) return 0;
-                return Math.max(0, Math.min(1, seg / railMaxSeg));
+            // Evita líneas huérfanas muy cortas: las une a la anterior
+            for (let i = cues.length - 1; i > 0; i--) {
+                if (cues[i].length < 14 && cues[i - 1].length + cues[i].length + 1 <= maxLen * 1.3) {
+                    cues[i - 1] += ' ' + cues[i];
+                    cues.splice(i, 1);
+                }
             }
+            return cues;
+        }
 
-            function buildMarkers() {
-                const pumps = window.MIA_PUMPS || [];
-                railMarkers.innerHTML = '';
-                pumps.forEach(p => {
-                    const m = document.createElement('div');
-                    m.className = 'marker';
-                    m.style.bottom = (railFrac(p.seg) * 100) + '%';
-                    const num = (p.pump || '').split('_')[1] || '';
-                    m.innerHTML = `<span class="dot"></span>` +
-                        `<span class="lbl">${num}· ${p.ingrediente || ''}</span>`;
-                    railMarkers.appendChild(m);
-                    markerEls[p.pump] = m;
-                });
+        function stopSubtitleSequence() {
+            if (subTimer) {
+                clearInterval(subTimer);
+                subTimer = null;
             }
-            buildMarkers();
+        }
 
-            function moveCup(toSeg, duration) {
-                const dur = Math.max(0.15, Number(duration) || 0.15);
-                railCup.style.transitionDuration = dur + 's';
-                // bottom en %: el translateY(-50%) mantiene el vaso centrado en el punto
-                requestAnimationFrame(() => {
-                    railCup.style.bottom = (railFrac(toSeg) * 100) + '%';
-                });
+        function setSubtitle(text) {
+            stopSubtitleSequence();
+            subtitleText.textContent = text;
+        }
+
+        function startSubtitleSequence(text, audio) {
+            stopSubtitleSequence();
+
+            const cues = splitIntoCues(text, SUB_MAX_CHARS);
+            if (!cues.length) { subtitleText.textContent = '...'; return; }
+
+            subtitleText.textContent = cues[0];
+            if (cues.length === 1) return;
+
+            // Reparte el tiempo del audio en proporción al largo de cada línea
+            const total = cues.reduce((s, c) => s + c.length, 0) || 1;
+            let acc = 0;
+            const bounds = cues.map(c => { acc += c.length; return acc / total; });
+
+            const estimated = Math.max(1, text.length * 0.062);  // ~16 caracteres/s
+            const startedAt = performance.now();
+            let shown = 0;
+
+            subTimer = setInterval(() => {
+                const dur = (audio && isFinite(audio.duration) && audio.duration > 0)
+                    ? audio.duration : estimated;
+                const elapsed = (audio && audio.currentTime > 0)
+                    ? audio.currentTime : (performance.now() - startedAt) / 1000;
+
+                const frac = elapsed / dur;
+                let idx = bounds.findIndex(b => frac < b);
+                if (idx < 0) idx = cues.length - 1;
+
+                if (idx !== shown) {
+                    shown = idx;
+                    subtitleText.textContent = cues[idx];
+                }
+            }, 100);
+        }
+
+        new MutationObserver(syncStateAccent)
+            .observe(stateText, { childList: true, characterData: true, subtree: true });
+        new MutationObserver(syncSubtitle)
+            .observe(subtitleText, { childList: true, characterData: true, subtree: true });
+        syncStateAccent();
+
+        // --- Estado de conexión Socket.IO ---
+        socket.on('connect', () => {
+            statusDot.style.background = '#22c55e';
+            statusDot.style.boxShadow = '0 0 10px #22c55e';
+            statusLabel.textContent = 'MIA Conectada';
+            statusLabel.style.color = '#15803d';
+            // Pedir al servidor que emita el estado actual
+            socket.emit('request_state');
+        });
+
+        socket.on('disconnect', () => {
+            statusDot.style.background = '#ef4444';
+            statusDot.style.boxShadow = '0 0 10px #ef4444';
+            statusLabel.textContent = 'MIA Desconectada';
+            statusLabel.style.color = '#b91c1c';
+        });
+
+        // ============================================================
+        // MICRÓFONO DEL NAVEGADOR
+        // ============================================================
+        // Toca el botón -> graba -> se corta solo al detectar silencio ->
+        // el clip viaja al servidor, que lo transcribe con Whisper y se lo
+        // pasa a MIA igual que si lo hubiera oído por el micro de la Pi.
+        const btnMic = document.getElementById('btn-mic');
+        const micHint = document.getElementById('mic-hint');
+        const micModeSwitch = document.getElementById('mic-mode');
+
+        // Modo: false = pulsar para hablar; true = micrófono siempre abierto
+        // (escucha continua con corte por silencio). Se recuerda entre visitas.
+        let micAbierto = localStorage.getItem('mia_mic_abierto') === '1';
+        let micAutoTimer = null;
+
+        function pintarModoMic() {
+            if (micModeSwitch) micModeSwitch.classList.toggle('open', micAbierto);
+        }
+        pintarModoMic();
+
+        if (micModeSwitch) {
+            micModeSwitch.addEventListener('click', () => {
+                micAbierto = !micAbierto;
+                localStorage.setItem('mia_mic_abierto', micAbierto ? '1' : '0');
+                pintarModoMic();
+                micActualizarBoton();
+                if (micAbierto) micAutoEscuchar(300);
+            });
+        }
+
+        // En modo abierto, vuelve a escuchar sola cuando no hay nada sonando
+        // ni un trago en proceso (para no oírse a sí misma ni a la música).
+        function micAutoEscuchar(delay) {
+            if (!micAbierto || !btnMic) return;
+            if (micGrabando || micProcesando || isPlaying) return;
+            if (document.body.classList.contains('pouring')) return;
+            if (micAutoTimer) clearTimeout(micAutoTimer);
+            micAutoTimer = setTimeout(() => {
+                micAutoTimer = null;
+                if (micAbierto && !micGrabando && !micProcesando && !isPlaying
+                    && !document.body.classList.contains('pouring')) {
+                    micIniciar();
+                }
+            }, delay || 600);
+        }
+
+        const MIC_SILENCIO_MS = 1100;   // silencio que da por terminada la frase
+        const MIC_ESPERA_MS = 6000;     // margen para empezar a hablar
+        const MIC_MAX_MS = 15000;       // corte defensivo
+        const MIC_UMBRAL = 0.035;       // RMS por encima del cual hay voz
+
+        let micStream = null;
+        let micRecorder = null;
+        let micChunks = [];
+        let micGrabando = false;
+        let micProcesando = false;
+        let micCtx = null;
+        let micAnalyser = null;
+        let micRAF = null;
+        let micHuboVoz = false;
+
+        function micMensaje(texto, esError) {
+            if (!micHint) return;
+            micHint.textContent = texto;
+            micHint.classList.toggle('error', !!esError);
+        }
+
+        function micActualizarBoton() {
+            if (!btnMic) return;          // modo Pi: no hay botón, escucha el wake word
+            const ocupado = micProcesando || isPlaying;
+            btnMic.disabled = ocupado && !micGrabando;
+            btnMic.classList.toggle('recording', micGrabando);
+
+            const wake = window.MIA_WAKE_WORD || 'Mia';
+            if (micGrabando) {
+                micMensaje(micAbierto ? 'Di «' + wake + '» y tu pedido' : 'Escuchando… toca para enviar');
             }
+            else if (micProcesando) micMensaje('Procesando…');
+            else if (isPlaying) micMensaje('MIA está hablando…');
+            else micMensaje(micAbierto ? 'Micrófono abierto — di «' + wake + '»' : 'Toca para hablar');
+        }
 
-            function setFill(fracTo, duration) {
-                const dur = Math.max(0.15, Number(duration) || 0.15);
-                cupLiquid.style.transitionDuration = dur + 's';
-                requestAnimationFrame(() => {
-                    cupLiquid.style.height = Math.max(0, Math.min(1, fracTo)) * 100 + '%';
-                });
-            }
-
-            function clearMarkerStates() {
-                Object.values(markerEls).forEach(m => m.classList.remove('pouring'));
-            }
-
-            socket.on('drink_start', (d) => {
-                railMaxSeg = Number(d.max_seg) || railMaxSeg;
-                buildMarkers();
-                railPanel.classList.add('active');
-                railDrink.textContent = d.coctel || 'Preparando';
-                railPct.textContent = '0%';
-                clearMarkerStates();
-                Object.values(markerEls).forEach(m => m.classList.remove('done'));
-                setFill(0, 0.2);
-                moveCup(0, 0.2);
-            });
-
-            socket.on('move', (d) => {
-                clearMarkerStates();
-                moveCup(Number(d.to_seg) || 0, d.duration);
-            });
-
-            socket.on('pour_start', (d) => {
-                clearMarkerStates();
-                const m = markerEls[d.pump];
-                if (m) m.classList.add('pouring');
-                const total = Number(d.total_ml) || 1;
-                setFill(Number(d.to_ml) / total, d.duration);
-            });
-
-            socket.on('pour_end', (d) => {
-                clearMarkerStates();
-                const m = markerEls[d.pump];
-                if (m) { m.classList.remove('pouring'); m.classList.add('done'); }
-                const total = Number(d.total_ml) || 1;
-                const pct = Math.round((Number(d.servido_ml) / total) * 100);
-                railPct.textContent = pct + '%';
-            });
-
-            socket.on('drink_done', (d) => {
-                clearMarkerStates();
-                railPct.textContent = '100%';
-                railDrink.textContent = '¡Listo! ' + (d.coctel || '');
-                setTimeout(() => {
-                    railPanel.classList.remove('active');
-                    railDrink.textContent = 'En espera';
-                    railPct.textContent = '0%';
-                    setFill(0, 0.6);
-                    Object.values(markerEls).forEach(m => m.classList.remove('done'));
-                }, 6000);
-            });
-
-
-            // Mapa de imágenes
-            const imgMap = {
-                neutral: '/static/avatars/neutral.png',
-                feliz: '/static/avatars/feliz.png',
-                riendose: '/static/avatars/riendose.png',
-                enojada: '/static/avatars/enojada.png',
-                triste: '/static/avatars/triste.png',
-                llorando: '/static/avatars/llorando.png',
-                pensando: '/static/avatars/pensando.png',
-                vision: '/static/avatars/cuerpo-completo.jpeg',
-                hablando: '/static/avatars/hablando.png',
-                blink: '/static/avatars/neutral-ojo-cerrado.jpeg',
-                boca_abierta_ojos_cerrado: '/static/avatars/boca-abierta-ojos-cerrado.png',
-                hablando_semi_abierta: '/static/avatars/hablando_semi_abierta.png',
-                hablando_media_abierta: '/static/avatars/hablando_media_abierta.png',
-                hablando_pronunciando: '/static/avatars/hablando_pronunciando.png'
-            };
-
-            let currentEmotion = 'neutral';
-            let isTalking = false;
-            let talkInterval = null;
-
-            // Frames para la animación de pensar
-            const thinkingFrames = [
-                '/static/avatars/pensando.png',
-                '/static/avatars/pensando2.jpeg',
-                '/static/avatars/pensando3.jpeg',
-                '/static/avatars/pensando4.jpeg'
+        function elegirMimeType() {
+            const opciones = [
+                'audio/webm;codecs=opus', 'audio/webm',
+                'audio/ogg;codecs=opus', 'audio/mp4',
             ];
-            let currentThinkingFrame = 0;
-            let thinkingInterval = null;
+            if (!window.MediaRecorder) return '';
+            return opciones.find(t => MediaRecorder.isTypeSupported(t)) || '';
+        }
 
-            function startThinkingAnimation() {
-                stopThinkingAnimation();
-                avatarImg.src = thinkingFrames[0];
-                currentThinkingFrame = 1;
-                avatarImg.classList.add('thinking-animation');
-                thinkingInterval = setInterval(() => {
-                    avatarImg.src = thinkingFrames[currentThinkingFrame];
-                    currentThinkingFrame = (currentThinkingFrame + 1) % thinkingFrames.length;
-                }, 600);
-            }
-
-            function stopThinkingAnimation() {
-                if (thinkingInterval) {
-                    clearInterval(thinkingInterval);
-                    thinkingInterval = null;
-                }
-                avatarImg.classList.remove('thinking-animation');
-            }
-
-            // Variables para suavizado y ritmo natural del movimiento de boca (Lip-Sync)
-            let lastMouthState = 'closed';
-            let lastMouthStateChangeTime = 0;
-            let lastEmotionPlayed = 'neutral';
-            const MIN_OPEN_DURATION = 130;  // ms que la boca debe quedarse abierta
-            const MIN_CLOSED_DURATION = 90; // ms que la boca debe quedarse cerrada
-
-            // Suavizado dinámico del volumen y tasa de frames
-            let smoothAverage = 0;
-            let lastImageUpdateTime = 0;
-            const IMAGE_UPDATE_THROTTLE = 75; // 75ms para un ritmo de habla y cambio de frames más natural y pausado
-
-            // Analizador simple de emociones por palabras clave
-            function analyzeEmotion(text) {
-                if (!text) return 'neutral';
-                text = text.toLowerCase();
-
-                if (text.match(/llorar|lloro|despedida|llorando|lágrimas/)) return 'llorando';
-                if (text.match(/chao|adiós|adios|me voy|triste|pena|mal|duele/)) return 'triste';
-                if (text.match(/enoj|molest|odio|maldit|rabia|furia|tonto|estúpid/)) return 'enojada';
-                if (text.match(/chiste|jaj|jej|brom|ris|divertid/)) return 'riendose';
-                if (text.match(/feliz|alegre|bien|genial|graci|hola|excelente|amor/)) return 'feliz';
-
-                return 'neutral';
-            }
-
-            // --- Mapeo dinámico de bocas según la emoción activa ---
-            function getSpeakingFrames(emotion) {
-                const closedFrame = imgMap[emotion] || imgMap.neutral;
-                let openFrame = imgMap.hablando;
-
-                // Si está alegre/riendose usa "riendose" como boca abierta
-                if (emotion === 'feliz' || emotion === 'riendose') {
-                    openFrame = imgMap.riendose;
-                }
-                // Si está triste/llorando usa "llorando" como boca abierta
-                else if (emotion === 'triste' || emotion === 'llorando') {
-                    openFrame = imgMap.llorando;
-                }
-
-                return { closed: closedFrame, open: openFrame };
-            }
-
-            // --- Web Audio API para Lip-Sync en tiempo real ---
-            let audioCtx = null;
-            let analyser = null;
-            let dataArray = null;
-            let sourceMap = new WeakMap();
-            let monitorInterval = null;
-
-            function initAudioContext(audioElement) {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    analyser = audioCtx.createAnalyser();
-                    analyser.fftSize = 256;
-                    const bufferLength = analyser.frequencyBinCount;
-                    dataArray = new Uint8Array(bufferLength);
-                }
-
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-
-                if (!sourceMap.has(audioElement)) {
-                    try {
-                        const source = audioCtx.createMediaElementSource(audioElement);
-                        source.connect(analyser);
-                        analyser.connect(audioCtx.destination);
-                        sourceMap.set(audioElement, source);
-                    } catch (e) {
-                        console.warn("Audio connection warning:", e);
-                    }
-                }
-            }
-
-            function startVolumeMonitor() {
-                if (monitorInterval) {
-                    cancelAnimationFrame(monitorInterval);
-                }
-
-                function updateMouth() {
-                    if (!isPlaying || !analyser) {
-                        stopTalkingAnimation();
-                        return;
-                    }
-
-                    analyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
-                    let activeFrequencies = 0;
-                    for (let i = 0; i < dataArray.length; i++) {
-                        sum += dataArray[i];
-                        if (dataArray[i] > 0) activeFrequencies++;
-                    }
-
-                    let average = activeFrequencies > 0 ? (sum / activeFrequencies) : 0;
-
-                    // Suavizado exponencial para evitar saltos bruscos
-                    smoothAverage = 0.6 * smoothAverage + 0.4 * average;
-
-                    const now = Date.now();
-                    if (now - lastImageUpdateTime >= IMAGE_UPDATE_THROTTLE) {
-                        const frames = getSpeakingFrames(currentEmotion);
-                        let targetImg = frames.closed;
-                        let targetTransform = 'scaleY(1) translateY(0)';
-
-                        if (smoothAverage > 10) {
-                            isTalking = true;
-                            if (smoothAverage <= 20) {
-                                targetImg = imgMap.hablando_semi_abierta;
-                                targetTransform = 'scaleY(1.01) translateY(-1px)';
-                            } else if (smoothAverage <= 35) {
-                                targetImg = imgMap.hablando_media_abierta;
-                                targetTransform = 'scaleY(1.02) translateY(-2px)';
-                            } else {
-                                // Alternar de forma rítmica (cada 150ms) en lugar de aleatorio salvaje
-                                const cycle = Math.floor(now / 150) % 2;
-                                targetImg = (cycle === 0) ? imgMap.hablando : imgMap.hablando_pronunciando;
-                                targetTransform = 'scaleY(1.03) translateY(-3px)';
-                            }
-
-                            // Parpadeo aleatorio al hablar (ojos cerrados con boca abierta)
-                            if (Math.random() < 0.12) {
-                                targetImg = imgMap.boca_abierta_ojos_cerrado;
-                            }
-                        } else {
-                            isTalking = false;
-                            targetImg = frames.closed;
-                        }
-
-                        const expectedUrl = window.location.origin + targetImg;
-                        if (avatarImg.src !== expectedUrl) {
-                            avatarImg.src = targetImg;
-                            avatarImg.style.transform = targetTransform;
-                        }
-                        lastImageUpdateTime = now;
-                    }
-
-                    monitorInterval = requestAnimationFrame(updateMouth);
-                }
-
-                updateMouth();
-            }
-
-            function stopTalkingAnimation() {
-                isTalking = false;
-                lastMouthState = 'closed';
-                lastMouthStateChangeTime = 0;
-                smoothAverage = 0;
-                if (monitorInterval) {
-                    cancelAnimationFrame(monitorInterval);
-                    monitorInterval = null;
-                }
-                const frames = getSpeakingFrames(currentEmotion);
-                avatarImg.src = frames.closed;
-                avatarImg.style.transform = 'scaleY(1) translateY(0)';
-            }
-
-            // --- Parpadeo Ocasional ---
-            function scheduleBlink() {
-                if (!isTalking && (stateText.textContent === 'DURMIENDO' || currentEmotion === 'neutral' || currentEmotion === 'feliz')) {
-                    const previousSrc = avatarImg.src;
-                    avatarImg.src = imgMap.blink;
-                    setTimeout(() => {
-                        if (!isTalking && (stateText.textContent === 'DURMIENDO' || currentEmotion === 'neutral' || currentEmotion === 'feliz')) {
-                            avatarImg.src = previousSrc;
-                        }
-                    }, 150);
-                }
-                setTimeout(scheduleBlink, 2500 + Math.random() * 4000);
-            }
-            setTimeout(scheduleBlink, 2000);
-
-            // Mapeo seguro de estados visuales 
-            let allAudioReceived = false;
-
-            socket.on('state_update', (data) => {
-                const state = data.state;
-                const text = data.text || '';
-
-                // Limpiar clases de animación previas y detener temporizadores de pensar
-                avatarImg.classList.remove('thinking-animation');
-                stopThinkingAnimation();
-
-                // Al empezar un nuevo turno de escucha o pensamiento, reseteamos el flag de audio completado
-                if (state === 'listening' || state === 'thinking') {
-                    allAudioReceived = false;
-                }
-
-                // Detectar posible emoción del texto del usuario o estado interno
-                if (text) {
-                    const newEmotion = analyzeEmotion(text);
-                    if (newEmotion !== 'neutral') {
-                        currentEmotion = newEmotion;
-                    }
-                }
-
-                switch (state) {
-                    case 'all_audio_sent':
-                        allAudioReceived = true;
-                        // Si ya se envió todo y la cola está vacía y no está reproduciendo, avisar al servidor
-                        if (!isPlaying && audioQueue.length === 0) {
-                            socket.emit('audio_finished');
-                            allAudioReceived = false;
-                        }
-                        break;
-
-                    case 'idle':
-                        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-                        stateText.textContent = 'DURMIENDO';
-                        stateText.style.color = '#444';
-                        subtitleText.textContent = '...';
-                        // Si estaba muy alterada, en idle se relaja a neutral o mantiene feliz
-                        if (['enojada', 'llorando'].includes(currentEmotion)) {
-                            currentEmotion = 'neutral';
-                        }
-                        avatarImg.src = imgMap[currentEmotion] || imgMap.neutral;
-                        avatarImg.style.boxShadow = '0 0 20px rgba(100,100,100,0.5)';
-                        break;
-
-                    case 'preparing_drink':
-                        stateText.textContent = 'PREPARANDO';
-                        stateText.style.color = '#ff8800';
-                        subtitleText.textContent = 'Preparando: ' + text;
-                        avatarImg.src = imgMap.feliz;
-                        avatarImg.style.boxShadow = '0 0 30px #ff8800';
-
-                        // Resaltar en el menú
-                        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-                        let drinkClass = text.toLowerCase().replace(" ", "");
-                        if (drinkClass.includes("tormenta") || drinkClass.includes("purpura") || drinkClass.includes("púrpura")) document.getElementById("menu-tormenta").classList.add("active");
-                        if (drinkClass.includes("brisa") || drinkClass.includes("marina")) document.getElementById("menu-brisa").classList.add("active");
-                        if (drinkClass.includes("atardecer")) document.getElementById("menu-atardecer").classList.add("active");
-                        if (drinkClass.includes("bandera")) document.getElementById("menu-bandera").classList.add("active");
-                        break;
-
-                    case 'listening':
-                        stateText.textContent = 'ESCUCHANDO';
-                        stateText.style.color = '#00ff88';
-                        subtitleText.textContent = text || '¿Sí?';
-                        currentEmotion = 'feliz'; // Siempre atenta y feliz al escuchar
-                        avatarImg.src = imgMap.feliz;
-                        avatarImg.style.boxShadow = '0 0 40px rgba(0, 255, 136, 0.6)';
-                        break;
-
-                    case 'thinking':
-                        stateText.textContent = 'PENSANDO';
-                        stateText.style.color = '#b200ff';
-                        subtitleText.textContent = text || 'Procesando...';
-                        avatarImg.style.boxShadow = '0 0 40px rgba(178, 0, 255, 0.6)';
-                        startThinkingAnimation();
-                        break;
-
-                    case 'vision':
-                        stateText.textContent = 'VIENDO';
-                        stateText.style.color = '#ff3366';
-                        subtitleText.textContent = text || 'Analizando visión...';
-                        avatarImg.src = imgMap.vision;
-                        avatarImg.style.boxShadow = '0 0 50px rgba(255, 51, 102, 0.8)';
-                        break;
-
-
-                }
+        async function micAsegurarPermiso() {
+            if (micStream && micStream.active) return micStream;
+            micStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
             });
+            // Analizador propio: no se mezcla con el del lip-sync del avatar.
+            micCtx = new (window.AudioContext || window.webkitAudioContext)();
+            micAnalyser = micCtx.createAnalyser();
+            micAnalyser.fftSize = 1024;
+            micCtx.createMediaStreamSource(micStream).connect(micAnalyser);
+            return micStream;
+        }
 
-            // --- Nueva lógica de emociones directas ---
-            socket.on('emotion_update', (data) => {
-                const emot = data.emotion;
-                if (imgMap[emot]) {
-                    currentEmotion = emot;
-                    if (!isTalking) {
-                        avatarImg.src = imgMap[emot];
-                    }
+        // Corta la grabación sola cuando dejas de hablar (igual que el micro de la Pi)
+        function micVigilarSilencio() {
+            const datos = new Uint8Array(micAnalyser.fftSize);
+            const inicio = performance.now();
+            let calladoDesde = 0;
+
+            (function bucle() {
+                if (!micGrabando) return;
+
+                micAnalyser.getByteTimeDomainData(datos);
+                let suma = 0;
+                for (let i = 0; i < datos.length; i++) {
+                    const v = (datos[i] - 128) / 128;
+                    suma += v * v;
                 }
-            });
+                const rms = Math.sqrt(suma / datos.length);
+                const ahora = performance.now();
 
-            // --- Interrupción de audio ---
-            socket.on('stop_audio', () => {
-                console.log("⏹️ Interrupción de audio recibida");
-                audioQueue = []; // Vaciar cola
-                if (currentAudio) {
-                    currentAudio.pause();
-                    currentAudio.currentTime = 0;
-                }
-                isPlaying = false;
-                stopTalkingAnimation();
-            });
+                // Aro del botón siguiendo el volumen real
+                const aro = btnMic && btnMic.querySelector('.mic-level');
+                if (aro) aro.style.transform = 'scale(' + (1 + Math.min(0.35, rms * 3.2)) + ')';
 
-            // --- Cola de Audio para Streaming (Chunked TTS) ---
-            let audioQueue = [];
-            let isPlaying = false;
-            let currentAudio = null;
-
-            socket.on('play_audio_chunk', (data) => {
-                const audioB64 = data.audio_b64;
-                const text = data.text;
-
-                // Analizar la emoción del fragmento que llega (Legacy fallback)
-                const newEmot = analyzeEmotion(text);
-                if (newEmot !== 'neutral') currentEmotion = newEmot;
-
-                // Pre-cargar y decodificar el objeto Audio inmediatamente en memoria
-                const audioObj = new Audio("data:audio/mp3;base64," + audioB64);
-                audioObj.preload = "auto";
-                audioObj.volume = voiceVolume;  // volumen de voz ajustable
-
-                // Lo encolamos ya instanciado para reproducirse sin delay
-                audioQueue.push({ audio: audioObj, text: text, emotion: currentEmotion });
-
-                // Si no estamos reproduciendo nada, iniciar el proceso
-                if (!isPlaying) {
-                    playNextInQueue();
-                }
-            });
-
-            function playNextInQueue() {
-                if (audioQueue.length === 0) {
-                    isPlaying = false;
-                    stopTalkingAnimation();
-
-                    // Solo notificar al servidor si ya recibimos la confirmación de que se envió todo el audio
-                    if (allAudioReceived) {
-                        socket.emit('audio_finished');
-                        allAudioReceived = false;
-                    }
-
-                    // Dormir
-                    stateText.textContent = 'DURMIENDO';
-                    stateText.style.color = '#444';
-                    subtitleText.textContent = '...';
-                    avatarImg.style.boxShadow = '0 0 20px rgba(100,100,100,0.5)';
-                    avatarImg.src = imgMap[currentEmotion] || imgMap.neutral;
+                if (rms > MIC_UMBRAL) {
+                    micHuboVoz = true;
+                    calladoDesde = 0;
+                } else if (micHuboVoz) {
+                    if (!calladoDesde) calladoDesde = ahora;
+                    else if (ahora - calladoDesde > MIC_SILENCIO_MS) { micDetener(); return; }
+                } else if (ahora - inicio > MIC_ESPERA_MS) {
+                    micDetener();
                     return;
                 }
 
-                isPlaying = true;
-                const chunk = audioQueue.shift();
-                currentEmotion = chunk.emotion;
+                if (ahora - inicio > MIC_MAX_MS) { micDetener(); return; }
+                micRAF = requestAnimationFrame(bucle);
+            })();
+        }
 
-                // Interfaz visual
-                stateText.textContent = 'HABLANDO';
-                stateText.style.color = '#ffcf00';
-                subtitleText.textContent = chunk.text;
-                avatarImg.style.boxShadow = '0 0 40px rgba(255, 207, 0, 0.6)';
+        async function micIniciar() {
+            if (!btnMic || micGrabando || micProcesando || isPlaying) return;
 
-                currentAudio = chunk.audio;
-
-                try {
-                    initAudioContext(currentAudio);
-                } catch (e) {
-                    console.error("Error al inicializar AudioContext:", e);
-                }
-
-                currentAudio.onended = () => {
-                    playNextInQueue();
-                };
-
-                startVolumeMonitor();
-
-                currentAudio.play().catch(e => {
-                    console.error("Error al reproducir audio chunk:", e);
-                    playNextInQueue(); // fallar suave e intentar reproducir el proximo
-                });
+            if (!navigator.mediaDevices || !window.MediaRecorder) {
+                micMensaje('Este navegador no soporta micrófono', true);
+                return;
             }
 
-            // --- Auto-Unlock Overlay ---
-            const overlay = document.getElementById('unlock-overlay');
-            overlay.addEventListener('click', () => {
+            try {
+                await micAsegurarPermiso();
+            } catch (e) {
+                console.warn('Micrófono denegado:', e);
+                micMensaje('Permite el micrófono en el navegador', true);
+                return;
+            }
+
+            if (micCtx && micCtx.state === 'suspended') micCtx.resume();
+
+            const mime = elegirMimeType();
+            micChunks = [];
+            micHuboVoz = false;
+            micRecorder = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+
+            micRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) micChunks.push(e.data);
+            };
+            micRecorder.onstop = () => micEnviar(mime);
+
+            micRecorder.start();
+            micGrabando = true;
+            micActualizarBoton();
+
+            // Estado visual inmediato (no esperamos al servidor)
+            stateText.textContent = 'ESCUCHANDO';
+            stateText.style.color = '#65a30d';
+            subtitleBox.classList.remove('from-user');
+            setSubtitle('Te escucho…');
+
+            micVigilarSilencio();
+        }
+
+        function micDetener() {
+            if (!micGrabando) return;
+            micGrabando = false;
+            if (micRAF) { cancelAnimationFrame(micRAF); micRAF = null; }
+            const aro = btnMic && btnMic.querySelector('.mic-level');
+            if (aro) aro.style.transform = 'scale(1)';
+            try { micRecorder.stop(); } catch (e) { console.warn(e); }
+        }
+
+        function micEnviar(mime) {
+            const blob = new Blob(micChunks, { type: mime || 'audio/webm' });
+            micChunks = [];
+
+            // Nada que transcribir: ni voz detectada ni audio suficiente.
+            if (!micHuboVoz || blob.size < 2000) {
+                micProcesando = false;
+                micActualizarBoton();
+                if (!document.body.classList.contains('pouring')) {
+                    stateText.textContent = 'DURMIENDO';
+                    stateText.style.color = '#9ca3af';
+                    setSubtitle('...');
+                }
+                if (micAbierto) micAutoEscuchar(400);   // sigue atenta, sin regaño
+                else micMensaje('No te escuché, inténtalo otra vez', true);
+                return;
+            }
+
+            micProcesando = true;
+            micActualizarBoton();
+
+            const ext = (mime && mime.includes('ogg')) ? 'ogg'
+                      : (mime && mime.includes('mp4')) ? 'mp4' : 'webm';
+
+            const lector = new FileReader();
+            lector.onloadend = () => {
+                const b64 = String(lector.result).split(',')[1] || '';
+                // En micrófono ABIERTO el servidor exige oír la palabra de
+                // activación. Al pulsar el botón ya hay intención explícita,
+                // así que no hace falta decirla.
+                socket.emit('voice_command', {
+                    audio_b64: b64,
+                    ext: ext,
+                    requiere_wake: micAbierto,
+                });
+            };
+            lector.readAsDataURL(blob);
+        }
+
+        if (btnMic) {
+            btnMic.addEventListener('click', () => {
                 unlockAudio();
-                overlay.style.display = 'none';
+                if (micGrabando) micDetener();
+                else micIniciar();
+            });
+        }
+
+        // Lo que el servidor entendió de tu voz
+        socket.on('user_said', (d) => {
+            micProcesando = false;
+            subtitleBox.classList.add('from-user');
+            setSubtitle(d.text || '');
+            micActualizarBoton();
+        });
+
+        socket.on('mic_error', (d) => {
+            micProcesando = false;
+            micActualizarBoton();
+            micMensaje((d && d.message) || 'No te escuché bien', true);
+            micAutoEscuchar(900);
+        });
+
+        // --- Música de espera + controles de volumen (Touch Pro) ---
+        const bgMusic = document.getElementById('bg-music');
+
+        // Volumen de la voz (aplicado a cada fragmento de audio de MIA).
+        let voiceVolume = (typeof window.MIA_VOICE_VOLUME === 'number') ? window.MIA_VOICE_VOLUME : 1.0;
+
+        // Inicializar controles con los valores del servidor.
+        const initMusicVol = (typeof window.MIA_MUSIC_VOLUME === 'number') ? window.MIA_MUSIC_VOLUME : 0.4;
+        if (bgMusic) bgMusic.volume = initMusicVol;
+
+        function pickRandomTrack() {
+            const tracks = window.MIA_MUSIC_TRACKS || [];
+            if (!tracks.length) return null;
+            return tracks[Math.floor(Math.random() * tracks.length)];
+        }
+
+        socket.on('music_start', () => {
+            if (!bgMusic) return;
+            const track = pickRandomTrack();
+            if (!track) return;
+            bgMusic.src = track;
+            bgMusic.play().catch(e => console.warn('No se pudo iniciar la música:', e));
+        });
+
+        socket.on('music_stop', () => {
+            if (!bgMusic) return;
+            bgMusic.pause();
+            bgMusic.currentTime = 0;
+        });
+
+        // ============================================================
+        // CONTROLES DE VOLUMEN
+        // Pulsar = aparece la barra vertical; arrastrar arriba/abajo cambia el
+        // nivel; al soltar se contrae y el botón vuelve a su forma de icono.
+        // Un toque corto sin arrastrar silencia / restablece.
+        // ============================================================
+        const VOL_RECORRIDO = 170;   // px de arrastre = 100% de rango
+        const TOQUE_MS = 220;        // por debajo de esto y sin arrastre = toque
+
+        function setupVolumeControl(element, onChange, nivelInicial) {
+            const levelEl = element.querySelector('.level');
+            const fillEl = element.querySelector('.vol-fill');
+            const pctEl = element.querySelector('.vol-pct');
+
+            let nivel = Math.max(0, Math.min(1, nivelInicial));
+            let activo = false, arrastro = false, inicioY = 0, nivelInicio = 0, tocadoEn = 0;
+
+            function pintar() {
+                const pct = Math.round(nivel * 100);
+                if (levelEl) levelEl.style.height = pct + '%';
+                if (fillEl) fillEl.style.height = pct + '%';
+                if (pctEl) pctEl.textContent = pct + '%';
+            }
+            pintar();
+
+            element.addEventListener('pointerdown', (e) => {
+                activo = true;
+                arrastro = false;
+                inicioY = e.clientY;
+                nivelInicio = nivel;
+                tocadoEn = performance.now();
+                element.classList.add('tuning');
+                element.setPointerCapture(e.pointerId);
+                e.preventDefault();
             });
 
-            function unlockAudio() {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    analyser = audioCtx.createAnalyser();
-                    analyser.fftSize = 256;
-                    const bufferLength = analyser.frequencyBinCount;
-                    dataArray = new Uint8Array(bufferLength);
-                }
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
+            element.addEventListener('pointermove', (e) => {
+                if (!activo) return;
+                const dy = inicioY - e.clientY;          // arriba = subir
+                if (!arrastro && Math.abs(dy) < 4) return;
+                arrastro = true;
+
+                nivel = Math.max(0, Math.min(1, nivelInicio + dy / VOL_RECORRIDO));
+                element.classList.remove('muted');
+                pintar();
+                onChange(nivel);
+            });
+
+            function soltar() {
+                if (!activo) return;
+                activo = false;
+                element.classList.remove('tuning');
+
+                // Toque corto sin arrastrar = silenciar / restablecer
+                if (!arrastro && performance.now() - tocadoEn < TOQUE_MS) {
+                    const silenciado = element.classList.toggle('muted');
+                    onChange(silenciado ? 0 : nivel);
                 }
             }
-        </script>
+
+            element.addEventListener('pointerup', soltar);
+            element.addEventListener('pointercancel', soltar);
+            element.addEventListener('lostpointercapture', soltar);
+        }
+
+        setupVolumeControl(
+            document.getElementById('music-control'),
+            (nivel) => { if (bgMusic) bgMusic.volume = nivel; },
+            initMusicVol
+        );
+
+        setupVolumeControl(
+            document.getElementById('voice-control'),
+            (nivel) => {
+                voiceVolume = nivel;
+                if (typeof currentAudio !== 'undefined' && currentAudio) {
+                    currentAudio.volume = nivel;
+                }
+            },
+            voiceVolume
+        );
+
+        // === Riel del recorrido del vaso (mimetiza el hardware real) ===
+        const railPanel = document.getElementById('rail-panel');
+        const railMarkers = document.getElementById('rail-markers');
+        const railCup = document.getElementById('rail-cup');
+        const cupLiquid = document.getElementById('cup-liquid');
+        const railDrink = document.getElementById('rail-drink');
+        const railPct = document.getElementById('rail-pct');
+        let railMaxSeg = Number(window.MIA_MAX_SEG) || 1;
+        const markerEls = {};   // pump -> elemento marcador
+        let drinkInProgress = false;   // true entre drink_start y drink_done
+        let railHideTimer = null;      // temporizador de los 3 s finales
+
+        function railFrac(seg) {
+            // seg=0 -> abajo (0%), seg=max -> arriba (100%)
+            if (railMaxSeg <= 0) return 0;
+            return Math.max(0, Math.min(1, seg / railMaxSeg));
+        }
+
+        function buildMarkers() {
+            const pumps = window.MIA_PUMPS || [];
+            railMarkers.innerHTML = '';
+            pumps.forEach(p => {
+                const m = document.createElement('div');
+                m.className = 'marker';
+                m.style.bottom = (railFrac(p.seg) * 100) + '%';
+                const num = (p.pump || '').split('_')[1] || '';
+                m.innerHTML = `<span class="dot"></span>` +
+                    `<span class="lbl">${num}· ${p.ingrediente || ''}</span>`;
+                railMarkers.appendChild(m);
+                markerEls[p.pump] = m;
+            });
+        }
+        buildMarkers();
+
+        function moveCup(toSeg, duration) {
+            const dur = Math.max(0.15, Number(duration) || 0.15);
+            railCup.style.transitionDuration = dur + 's';
+            // bottom en %: el translateY(-50%) mantiene el vaso centrado en el punto
+            requestAnimationFrame(() => {
+                railCup.style.bottom = (railFrac(toSeg) * 100) + '%';
+            });
+        }
+
+        function setFill(fracTo, duration) {
+            const dur = Math.max(0.15, Number(duration) || 0.15);
+            cupLiquid.style.transitionDuration = dur + 's';
+            requestAnimationFrame(() => {
+                cupLiquid.style.height = Math.max(0, Math.min(1, fracTo)) * 100 + '%';
+            });
+        }
+
+        function clearMarkerStates() {
+            Object.values(markerEls).forEach(m => m.classList.remove('pouring'));
+        }
+
+        socket.on('drink_start', (d) => {
+            railMaxSeg = Number(d.max_seg) || railMaxSeg;
+            buildMarkers();
+            drinkInProgress = true;
+            if (railHideTimer) { clearTimeout(railHideTimer); railHideTimer = null; }
+            document.body.classList.add('pouring');
+            document.body.classList.add('serving');
+            railPanel.classList.add('active');
+            railDrink.textContent = d.coctel || 'Preparando';
+            highlightDrink(d.coctel);
+            railPct.textContent = '0%';
+            clearMarkerStates();
+            Object.values(markerEls).forEach(m => m.classList.remove('done'));
+            setFill(0, 0.2);
+            moveCup(0, 0.2);
+        });
+
+        socket.on('move', (d) => {
+            clearMarkerStates();
+            moveCup(Number(d.to_seg) || 0, d.duration);
+        });
+
+        socket.on('pour_start', (d) => {
+            clearMarkerStates();
+            const m = markerEls[d.pump];
+            if (m) m.classList.add('pouring');
+            const total = Number(d.total_ml) || 1;
+            setFill(Number(d.to_ml) / total, d.duration);
+        });
+
+        socket.on('pour_end', (d) => {
+            clearMarkerStates();
+            const m = markerEls[d.pump];
+            if (m) { m.classList.remove('pouring'); m.classList.add('done'); }
+            const total = Number(d.total_ml) || 1;
+            const pct = Math.round((Number(d.servido_ml) / total) * 100);
+            railPct.textContent = pct + '%';
+        });
+
+        socket.on('drink_done', (d) => {
+            drinkInProgress = false;
+            clearMarkerStates();
+            railPct.textContent = '100%';
+            railDrink.textContent = '¡Listo! ' + (d.coctel || '');
+            // No se oculta aquí: espera a que MIA termine su mensaje de cierre
+            // (ver scheduleRailHide) y entonces aguanta 3 segundos más.
+            scheduleRailHide();
+        });
+
+        // --- Ciclo de vida del riel ---
+        // Visible desde drink_start hasta 3 s después de que el trago esté
+        // servido Y MIA haya terminado de hablar. Mientras tanto, el ambiente
+        // naranja (body.serving) y el resaltado del menú se mantienen.
+        function scheduleRailHide() {
+            if (!document.body.classList.contains('pouring')) return;
+            if (drinkInProgress) return;                       // aún dispensando
+            if (isPlaying || audioQueue.length > 0) return;    // aún hablando
+            if (railHideTimer) clearTimeout(railHideTimer);
+            railHideTimer = setTimeout(() => {
+                railHideTimer = null;
+                if (drinkInProgress || isPlaying || audioQueue.length > 0) return;
+                ocultarRail();
+            }, 3000);
+        }
+
+        function ocultarRail() {
+            document.body.classList.remove('pouring');
+            document.body.classList.remove('serving');
+            railPanel.classList.remove('active');
+            railDrink.textContent = 'En espera';
+            railPct.textContent = '0%';
+            setFill(0, 0.6);
+            Object.values(markerEls).forEach(m => m.classList.remove('done'));
+            avatarImg.classList.remove('pouring-glow');
+            highlightDrink(null);
+            if (!isPlaying) {
+                stateText.textContent = 'DURMIENDO';
+                stateText.style.color = '#9ca3af';
+                setSubtitle('...');
+                avatarImg.style.boxShadow = '0 0 40px rgba(192,132,252,0.5)';
+                avatarImg.src = imgMap[currentEmotion] || imgMap.neutral;
+            }
+            micAutoEscuchar(500);
+        }
+
+
+        // Mapa de imágenes
+        const imgMap = {
+            neutral: '/static/avatars/neutral.png',
+            feliz: '/static/avatars/feliz.png',
+            riendose: '/static/avatars/riendose.png',
+            enojada: '/static/avatars/enojada.png',
+            triste: '/static/avatars/triste.png',
+            llorando: '/static/avatars/llorando.png',
+            pensando: '/static/avatars/pensando.png',
+            vision: '/static/avatars/cuerpo-completo.jpeg',
+            hablando: '/static/avatars/hablando.png',
+            blink: '/static/avatars/neutral-ojo-cerrado.jpeg',
+            boca_abierta_ojos_cerrado: '/static/avatars/boca-abierta-ojos-cerrado.png',
+            hablando_semi_abierta: '/static/avatars/hablando_semi_abierta.png',
+            hablando_media_abierta: '/static/avatars/hablando_media_abierta.png',
+            hablando_pronunciando: '/static/avatars/hablando_pronunciando.png'
+        };
+
+        let currentEmotion = 'neutral';
+        let isTalking = false;
+        let talkInterval = null;
+
+        // Frames para la animación de pensar
+        const thinkingFrames = [
+            '/static/avatars/pensando.png',
+            '/static/avatars/pensando2.jpeg',
+            '/static/avatars/pensando3.jpeg',
+            '/static/avatars/pensando4.jpeg'
+        ];
+        let currentThinkingFrame = 0;
+        let thinkingInterval = null;
+
+        function startThinkingAnimation() {
+            stopThinkingAnimation();
+            avatarImg.src = thinkingFrames[0];
+            currentThinkingFrame = 1;
+            avatarImg.classList.add('thinking-animation');
+            thinkingInterval = setInterval(() => {
+                avatarImg.src = thinkingFrames[currentThinkingFrame];
+                currentThinkingFrame = (currentThinkingFrame + 1) % thinkingFrames.length;
+            }, 600);
+        }
+
+        function stopThinkingAnimation() {
+            if (thinkingInterval) {
+                clearInterval(thinkingInterval);
+                thinkingInterval = null;
+            }
+            avatarImg.classList.remove('thinking-animation');
+        }
+
+        // Variables para suavizado y ritmo natural del movimiento de boca (Lip-Sync)
+        let lastMouthState = 'closed';
+        let lastMouthStateChangeTime = 0;
+        let lastEmotionPlayed = 'neutral';
+        const MIN_OPEN_DURATION = 130;  // ms que la boca debe quedarse abierta
+        const MIN_CLOSED_DURATION = 90; // ms que la boca debe quedarse cerrada
+
+        // Suavizado dinámico del volumen y tasa de frames
+        let smoothAverage = 0;
+        let lastImageUpdateTime = 0;
+        const IMAGE_UPDATE_THROTTLE = 75; // 75ms para un ritmo de habla y cambio de frames más natural y pausado
+
+        // Analizador simple de emociones por palabras clave
+        function analyzeEmotion(text) {
+            if (!text) return 'neutral';
+            text = text.toLowerCase();
+
+            if (text.match(/llorar|lloro|despedida|llorando|lágrimas/)) return 'llorando';
+            if (text.match(/chao|adiós|adios|me voy|triste|pena|mal|duele/)) return 'triste';
+            if (text.match(/enoj|molest|odio|maldit|rabia|furia|tonto|estúpid/)) return 'enojada';
+            if (text.match(/chiste|jaj|jej|brom|ris|divertid/)) return 'riendose';
+            if (text.match(/feliz|alegre|bien|genial|graci|hola|excelente|amor/)) return 'feliz';
+
+            return 'neutral';
+        }
+
+        // --- Mapeo dinámico de bocas según la emoción activa ---
+        function getSpeakingFrames(emotion) {
+            const closedFrame = imgMap[emotion] || imgMap.neutral;
+            let openFrame = imgMap.hablando;
+
+            // Si está alegre/riendose usa "riendose" como boca abierta
+            if (emotion === 'feliz' || emotion === 'riendose') {
+                openFrame = imgMap.riendose;
+            }
+            // Si está triste/llorando usa "llorando" como boca abierta
+            else if (emotion === 'triste' || emotion === 'llorando') {
+                openFrame = imgMap.llorando;
+            }
+
+            return { closed: closedFrame, open: openFrame };
+        }
+
+        // --- Web Audio API para Lip-Sync en tiempo real ---
+        let audioCtx = null;
+        let analyser = null;
+        let dataArray = null;
+        let sourceMap = new WeakMap();
+        let monitorInterval = null;
+
+        function initAudioContext(audioElement) {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+            }
+
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            if (!sourceMap.has(audioElement)) {
+                try {
+                    const source = audioCtx.createMediaElementSource(audioElement);
+                    source.connect(analyser);
+                    analyser.connect(audioCtx.destination);
+                    sourceMap.set(audioElement, source);
+                } catch (e) {
+                    console.warn("Audio connection warning:", e);
+                }
+            }
+        }
+
+        function startVolumeMonitor() {
+            if (monitorInterval) {
+                cancelAnimationFrame(monitorInterval);
+            }
+
+            function updateMouth() {
+                if (!isPlaying || !analyser) {
+                    stopTalkingAnimation();
+                    return;
+                }
+
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                let activeFrequencies = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                    if (dataArray[i] > 0) activeFrequencies++;
+                }
+
+                let average = activeFrequencies > 0 ? (sum / activeFrequencies) : 0;
+
+                // Suavizado exponencial para evitar saltos bruscos
+                smoothAverage = 0.6 * smoothAverage + 0.4 * average;
+
+                const now = Date.now();
+                if (now - lastImageUpdateTime >= IMAGE_UPDATE_THROTTLE) {
+                    const frames = getSpeakingFrames(currentEmotion);
+                    let targetImg = frames.closed;
+                    let targetTransform = 'scaleY(1) translateY(0)';
+
+                    if (smoothAverage > 10) {
+                        isTalking = true;
+                        if (smoothAverage <= 20) {
+                            targetImg = imgMap.hablando_semi_abierta;
+                            targetTransform = 'scaleY(1.01) translateY(-1px)';
+                        } else if (smoothAverage <= 35) {
+                            targetImg = imgMap.hablando_media_abierta;
+                            targetTransform = 'scaleY(1.02) translateY(-2px)';
+                        } else {
+                            // Alternar de forma rítmica (cada 150ms) en lugar de aleatorio salvaje
+                            const cycle = Math.floor(now / 150) % 2;
+                            targetImg = (cycle === 0) ? imgMap.hablando : imgMap.hablando_pronunciando;
+                            targetTransform = 'scaleY(1.03) translateY(-3px)';
+                        }
+
+                        // Parpadeo aleatorio al hablar (ojos cerrados con boca abierta)
+                        if (Math.random() < 0.12) {
+                            targetImg = imgMap.boca_abierta_ojos_cerrado;
+                        }
+                    } else {
+                        isTalking = false;
+                        targetImg = frames.closed;
+                    }
+
+                    const expectedUrl = window.location.origin + targetImg;
+                    if (avatarImg.src !== expectedUrl) {
+                        avatarImg.src = targetImg;
+                        avatarImg.style.transform = targetTransform;
+                    }
+                    lastImageUpdateTime = now;
+                }
+
+                monitorInterval = requestAnimationFrame(updateMouth);
+            }
+
+            updateMouth();
+        }
+
+        function stopTalkingAnimation() {
+            isTalking = false;
+            lastMouthState = 'closed';
+            lastMouthStateChangeTime = 0;
+            smoothAverage = 0;
+            if (monitorInterval) {
+                cancelAnimationFrame(monitorInterval);
+                monitorInterval = null;
+            }
+            const frames = getSpeakingFrames(currentEmotion);
+            avatarImg.src = frames.closed;
+            avatarImg.style.transform = 'scaleY(1) translateY(0)';
+        }
+
+        // --- Parpadeo Ocasional ---
+        function scheduleBlink() {
+            if (!isTalking && (stateText.textContent === 'DURMIENDO' || currentEmotion === 'neutral' || currentEmotion === 'feliz')) {
+                const previousSrc = avatarImg.src;
+                avatarImg.src = imgMap.blink;
+                setTimeout(() => {
+                    if (!isTalking && (stateText.textContent === 'DURMIENDO' || currentEmotion === 'neutral' || currentEmotion === 'feliz')) {
+                        avatarImg.src = previousSrc;
+                    }
+                }, 150);
+            }
+            setTimeout(scheduleBlink, 2500 + Math.random() * 4000);
+        }
+        setTimeout(scheduleBlink, 2000);
+
+        // --- Resaltado del trago en la carta ---
+        // Compara contra el nombre real del menú (data-drink), normalizando
+        // acentos y espacios, y prefiere la coincidencia más larga para que
+        // "Paloma Dulce" no se confunda con "Paloma".
+        function normalizeDrink(s) {
+            return (s || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function highlightDrink(name) {
+            const items = Array.from(document.querySelectorAll('.menu-item'));
+            items.forEach(el => el.classList.remove('active'));
+
+            const target = normalizeDrink(name);
+            if (!target) return;
+
+            const candidates = items
+                .map(el => ({ el, key: normalizeDrink(el.dataset.drink || el.textContent) }))
+                .filter(c => c.key)
+                .sort((a, b) => b.key.length - a.key.length);
+
+            const hit = candidates.find(c => c.key === target)
+                     || candidates.find(c => target.includes(c.key));
+            if (hit) hit.el.classList.add('active');
+        }
+
+        // Mapeo seguro de estados visuales
+        let allAudioReceived = false;
+
+        socket.on('state_update', (data) => {
+            const state = data.state;
+            const text = data.text || '';
+
+            // Limpiar clases de animación previas y detener temporizadores de pensar
+            avatarImg.classList.remove('thinking-animation');
+            stopThinkingAnimation();
+
+            // Al empezar un nuevo turno de escucha o pensamiento, reseteamos el flag de audio completado
+            if (state === 'listening' || state === 'thinking') {
+                allAudioReceived = false;
+            }
+
+            // Detectar posible emoción del texto del usuario o estado interno
+            if (text) {
+                const newEmotion = analyzeEmotion(text);
+                if (newEmotion !== 'neutral') {
+                    currentEmotion = newEmotion;
+                }
+            }
+
+            switch (state) {
+                case 'all_audio_sent':
+                    allAudioReceived = true;
+                    // Si ya se envió todo y la cola está vacía y no está reproduciendo, avisar al servidor
+                    if (!isPlaying && audioQueue.length === 0) {
+                        socket.emit('audio_finished');
+                        allAudioReceived = false;
+                    }
+                    break;
+
+                case 'idle':
+                    if (document.body.classList.contains('pouring')) {
+                        // El trago sigue en pantalla: mantener riel, naranja y
+                        // resaltado hasta 3 s después del cierre.
+                        scheduleRailHide();
+                        break;
+                    }
+                    highlightDrink(null);
+                    stateText.textContent = 'DURMIENDO';
+                    stateText.style.color = '#9ca3af';
+                    setSubtitle('...');
+                    document.body.classList.remove('serving');
+                    avatarImg.classList.remove('pouring-glow');
+                    // Si estaba muy alterada, en idle se relaja a neutral o mantiene feliz
+                    if (['enojada', 'llorando'].includes(currentEmotion)) {
+                        currentEmotion = 'neutral';
+                    }
+                    avatarImg.src = imgMap[currentEmotion] || imgMap.neutral;
+                    avatarImg.style.boxShadow = '0 0 40px rgba(192,132,252,0.5)';
+                    break;
+
+                case 'preparing_drink':
+                    stateText.textContent = 'PREPARANDO';
+                    stateText.style.color = '#f59e0b';
+                    setSubtitle('Preparando: ' + text);
+                    avatarImg.src = imgMap.feliz;
+                    avatarImg.classList.add('pouring-glow');
+                    avatarImg.style.boxShadow = '0 0 30px #f59e0b';
+                    document.body.classList.add('serving');
+
+                    highlightDrink(text);
+                    break;
+
+                case 'listening':
+                    stateText.textContent = 'ESCUCHANDO';
+                    stateText.style.color = '#65a30d';
+                    setSubtitle(text || '¿Sí?');
+                    currentEmotion = 'feliz';
+                    avatarImg.src = imgMap.feliz;
+                    avatarImg.style.boxShadow = '0 0 40px rgba(132,204,22,0.5)';
+                    if (!document.body.classList.contains('pouring')) {
+                        document.body.classList.remove('serving');
+                        avatarImg.classList.remove('pouring-glow');
+                    }
+                    break;
+
+                case 'thinking':
+                    stateText.textContent = 'PENSANDO';
+                    stateText.style.color = '#a855f7';
+                    setSubtitle(text || 'Procesando...');
+                    avatarImg.style.boxShadow = '0 0 40px rgba(168,85,247,0.5)';
+                    startThinkingAnimation();
+                    break;
+
+                case 'vision':
+                    stateText.textContent = 'VIENDO';
+                    stateText.style.color = '#f472b6';
+                    setSubtitle(text || 'Analizando visión...');
+                    avatarImg.src = imgMap.vision;
+                    avatarImg.style.boxShadow = '0 0 50px rgba(244,114,182,0.6)';
+                    break;
+
+
+            }
+        });
+
+        // --- Nueva lógica de emociones directas ---
+        socket.on('emotion_update', (data) => {
+            const emot = data.emotion;
+            if (imgMap[emot]) {
+                currentEmotion = emot;
+                if (!isTalking) {
+                    avatarImg.src = imgMap[emot];
+                }
+            }
+        });
+
+        // --- Interrupción de audio ---
+        socket.on('stop_audio', () => {
+            console.log("⏹️ Interrupción de audio recibida");
+            audioQueue = []; // Vaciar cola
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+            isPlaying = false;
+            stopSubtitleSequence();
+            stopTalkingAnimation();
+            micActualizarBoton();
+        });
+
+        // --- Cola de Audio para Streaming (Chunked TTS) ---
+        let audioQueue = [];
+        let isPlaying = false;
+        let currentAudio = null;
+
+        socket.on('play_audio_chunk', (data) => {
+            const audioB64 = data.audio_b64;
+            const text = data.text;
+
+            // Analizar la emoción del fragmento que llega (Legacy fallback)
+            const newEmot = analyzeEmotion(text);
+            if (newEmot !== 'neutral') currentEmotion = newEmot;
+
+            // Pre-cargar y decodificar el objeto Audio inmediatamente en memoria
+            const audioObj = new Audio("data:audio/mp3;base64," + audioB64);
+            audioObj.preload = "auto";
+            audioObj.volume = voiceVolume;  // volumen de voz ajustable
+
+            // Lo encolamos ya instanciado para reproducirse sin delay
+            audioQueue.push({ audio: audioObj, text: text, emotion: currentEmotion });
+
+            // Si no estamos reproduciendo nada, iniciar el proceso
+            if (!isPlaying) {
+                playNextInQueue();
+            }
+        });
+
+        function playNextInQueue() {
+            if (audioQueue.length === 0) {
+                isPlaying = false;
+                stopTalkingAnimation();
+
+                // Solo notificar al servidor si ya recibimos la confirmación de que se envió todo el audio
+                if (allAudioReceived) {
+                    socket.emit('audio_finished');
+                    allAudioReceived = false;
+                }
+
+                if (document.body.classList.contains('pouring')) {
+                    // El trago sigue en proceso (o en su cola de 3 s): mantener
+                    // el riel y el ambiente naranja hasta que ocultarRail decida.
+                    stateText.textContent = drinkInProgress ? 'PREPARANDO' : 'LISTO';
+                    stateText.style.color = '#f59e0b';
+                    micActualizarBoton();
+                    scheduleRailHide();
+                    return;
+                }
+
+                // Dormir
+                stateText.textContent = 'DURMIENDO';
+                stateText.style.color = '#9ca3af';
+                setSubtitle('...');
+                avatarImg.style.boxShadow = '0 0 40px rgba(192,132,252,0.5)';
+                avatarImg.src = imgMap[currentEmotion] || imgMap.neutral;
+                avatarImg.classList.remove('pouring-glow');
+                micActualizarBoton();
+                micAutoEscuchar(700);
+                return;
+            }
+
+            isPlaying = true;
+            const chunk = audioQueue.shift();
+            currentEmotion = chunk.emotion;
+
+            // Interfaz visual
+            stateText.textContent = 'HABLANDO';
+            stateText.style.color = '#f59e0b';
+            subtitleBox.classList.remove('from-user');
+            avatarImg.style.boxShadow = '0 0 40px rgba(245,158,11,0.5)';
+            micActualizarBoton();
+
+            currentAudio = chunk.audio;
+
+            // El subtítulo avanza línea por línea al ritmo del audio
+            startSubtitleSequence(chunk.text, currentAudio);
+
+            try {
+                initAudioContext(currentAudio);
+            } catch (e) {
+                console.error("Error al inicializar AudioContext:", e);
+            }
+
+            currentAudio.onended = () => {
+                playNextInQueue();
+            };
+
+            startVolumeMonitor();
+
+            currentAudio.play().catch(e => {
+                console.error("Error al reproducir audio chunk:", e);
+                playNextInQueue(); // fallar suave e intentar reproducir el proximo
+            });
+        }
+
+        // --- Auto-Unlock Overlay ---
+        const overlay = document.getElementById('unlock-overlay');
+        overlay.addEventListener('click', () => {
+            unlockAudio();
+            overlay.style.display = 'none';
+            micAutoEscuchar(600);   // modo abierto: empieza a escuchar ya
+        });
+
+        function unlockAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+    </script>
 </body>
 
 </html>

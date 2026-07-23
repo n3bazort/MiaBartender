@@ -3,7 +3,7 @@
 # ============================================================
 
 # --- Núcleo del asistente (siempre) ---
-pvporcupine        # Wake word local offline ("Mia")
+vosk               # Wake word "Mia" offline, libre y sin cuenta ni claves
 pyaudio            # Captura de audio del micrófono
 groq               # STT (Whisper) + LLM (Llama) en la nube
 edge-tts           # Text-to-speech gratuito y natural
@@ -19,3 +19,9 @@ python-dotenv      # Carga de secretos desde .env
 # --- Panel web opcional (solo si ENABLE_WEB_PANEL=true) ---
 flask
 flask-socketio
+
+# --- Alternativa opcional para el wake word ---
+# Porcupine gasta menos CPU que Vosk, pero exige una cuenta en Picovoice
+# (que pide correo corporativo). Solo si defines PICOVOICE_ACCESS_KEY:
+#   pip install pvporcupine
+# pvporcupine

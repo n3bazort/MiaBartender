@@ -26,6 +26,7 @@ from config import (
     RECETAS_COCTELES, BOMBAS_CONFIG,
     TTS_VOICE, PUMP_PINS, FLOW_RATE_ML_S, MAX_PUMP_SECONDS,
     PIN_MOTOR_IN1, PIN_MOTOR_IN2, PIN_MOTOR_ENA,
+    WAKE_KEYWORD_DISPLAY,
 )
 
 ACCIONES_VALIDAS = {"preparar", "responder", "no_disponible", "fuera_de_tema"}
@@ -67,8 +68,12 @@ class Brain:
         ingredientes = ", ".join(b["ingrediente"] for b in BOMBAS_CONFIG.values())
         return (
             f"Ingredientes conectados en la barra: {ingredientes}\n"
-            f"Cócteles del menú (SOLO estos se pueden preparar):\n"
+            f"Cócteles del menú — son {len(RECETAS_COCTELES)} y SOLO estos se pueden preparar:\n"
             + "\n".join(lines)
+            + "\n\nIMPORTANTE: en la clave 'coctel' escribe el nombre EXACTO tal como "
+              "aparece en la lista. Ojo: 'Paloma' y 'Paloma Dulce' son cócteles "
+              "DISTINTOS; si el cliente pide una paloma dulce, el coctel es "
+              "'Paloma Dulce', no 'Paloma'."
         )
 
     # ------------------------------------------------------------------
@@ -116,8 +121,8 @@ class Brain:
             "funcionas, dónde está tu cerebro, qué servicios usas, cómo te conectas "
             "a la Raspberry Pi o cómo controlas las bombas):\n"
             f"- Corres como UN SOLO proceso en Python sobre una Raspberry Pi 3.\n"
-            f"- Palabra de activación ('Mia'): se detecta LOCALMENTE y sin internet "
-            f"con Porcupine (Picovoice).\n"
+            f"- Palabra de activación ('{WAKE_KEYWORD_DISPLAY}'): se detecta LOCALMENTE "
+            f"y sin internet con Porcupine (Picovoice).\n"
             f"- Tu oído (voz→texto / STT): modelo Whisper '{GROQ_STT_MODEL}' en la "
             f"NUBE de Groq.\n"
             f"- Tu cerebro (razonamiento / LLM): modelo '{GROQ_LLM_MODEL}' (familia "
@@ -270,12 +275,24 @@ class Brain:
 
     @staticmethod
     def _match_coctel(coctel):
-        """Devuelve el nombre canónico del menú si hay match difuso, o None."""
+        """Devuelve el nombre canónico del menú si hay match difuso, o None.
+
+        Primero busca coincidencia EXACTA y después difusa probando los nombres
+        más largos primero: así "paloma dulce" cae en "Paloma Dulce" y no en
+        "Paloma", que es su prefijo.
+        """
         if not coctel or not isinstance(coctel, str):
             return None
-        target = coctel.lower().strip()
+        target = Brain._normalize(coctel)
+
         for name in RECETAS_COCTELES:
-            if name.lower() == target or name.lower() in target or target in name.lower():
+            if Brain._normalize(name) == target:
+                return name
+
+        por_largo = sorted(RECETAS_COCTELES, key=len, reverse=True)
+        for name in por_largo:
+            norm = Brain._normalize(name)
+            if norm in target or target in norm:
                 return name
         return None
 

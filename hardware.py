@@ -184,13 +184,23 @@ class Bartender:
         return steps
 
     def resolve_recipe(self, coctel):
-        """Busca la receta por nombre (match difuso). Devuelve (nombre, receta) o (None, None)."""
+        """Busca la receta por nombre (match difuso). Devuelve (nombre, receta) o (None, None).
+
+        Exacta primero y luego difusa con los nombres MÁS LARGOS primero, para
+        que "Paloma Dulce" no caiga en su prefijo "Paloma".
+        """
         if not coctel:
             return None, None
         target = coctel.lower().strip()
+
         for name, recipe in RECETAS_COCTELES.items():
-            if name.lower() == target or name.lower() in target or target in name.lower():
+            if name.lower() == target:
                 return name, recipe
+
+        for name in sorted(RECETAS_COCTELES, key=len, reverse=True):
+            low = name.lower()
+            if low in target or target in low:
+                return name, RECETAS_COCTELES[name]
         return None, None
 
     def preparar(self, coctel):
@@ -288,6 +298,25 @@ class Bartender:
     def dispense(self, pump_key, amount_ml):
         """Activación manual de una bomba (para calibración/diagnóstico)."""
         self._dispense(pump_key, float(amount_ml))
+
+    def pulse_pump(self, pump_key, seconds=1.0):
+        """Activa una bomba un tiempo fijo (para calibrar dónde cae el chorro)."""
+        pump = self._pumps.get(pump_key)
+        if pump is None:
+            print(f"[BOMBA] '{pump_key}' no existe.")
+            return
+        seconds = max(0.1, min(float(seconds), MAX_PUMP_SECONDS))
+        print(f"[BOMBA] {pump_key} activa {seconds:.1f}s...")
+        pump.on()
+        try:
+            time.sleep(seconds)
+        finally:
+            pump.off()
+
+    @property
+    def position(self):
+        """Posición actual del carro en segundos desde el origen."""
+        return self._position_seg
 
     def cleanup(self):
         """Apaga todo y libera los pines GPIO."""

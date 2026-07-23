@@ -25,7 +25,7 @@ from queue import Queue
 import edge_tts
 
 from config import (
-    TTS_ENGINE, TTS_VOICE, AUDIO_PLAYER_CMD,
+    TTS_ENGINE, TTS_VOICE, AUDIO_PLAYER_CMD, AUDIO_OUTPUT_DEVICE,
     ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL,
 )
 
@@ -215,8 +215,13 @@ class Voice:
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                 tmp.write(audio_bytes)
                 tmp_path = tmp.name
+            cmd = [AUDIO_PLAYER_CMD, "-q"]
+            # Parlantes USB de la Pi: mpg123 -a hw:1,0 (ver listar_audio.py)
+            if AUDIO_OUTPUT_DEVICE:
+                cmd += ["-a", AUDIO_OUTPUT_DEVICE]
+            cmd.append(tmp_path)
             subprocess.run(
-                [AUDIO_PLAYER_CMD, "-q", tmp_path],
+                cmd,
                 check=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

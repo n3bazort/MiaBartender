@@ -9,9 +9,12 @@
 # Se podó la lógica antigua de auto-descubrimiento de IP del celular (S25)
 # y de visión por cámara: ya no aplican a la arquitectura de un solo proceso.
 # ============================================================
+import base64
+import re
 import sys
 import threading
 import time
+import unicodedata
 
 import glob
 import os
@@ -22,6 +25,8 @@ from flask_socketio import SocketIO
 from assistant import VoiceAssistant
 from config import (
     WEB_PANEL_PORT, MUSIC_DIR, MUSIC_VOLUME, VOICE_VOLUME, BOMBAS_CONFIG,
+    RECETAS_COCTELES, INPUT_MODE, WAKE_KEYWORD, WAKE_KEYWORD_DISPLAY,
+    VOSK_WAKE_VARIANTS,
 )
 
 try:
@@ -35,10 +40,10 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 mia = None
 
 
-# True = modo simulador: NO se abre el micrófono ni el wake word; los comandos
-# llegan escritos desde el navegador (evento 'sim_command'). Ideal para probar
-# en una plataforma web sin hardware.
-SIMULATOR_MODE = False
+# "local" = micrófono USB + wake word en la Pi (audio por los parlantes de la Pi).
+# "web"   = el navegador captura el micrófono y reproduce la voz de MIA. No se
+#           abre ningún micrófono local: ideal para probar desde la laptop.
+WEB_MIC_MODE = (INPUT_MODE == "web")
 
 
 def _start_mia_backend():
@@ -63,26 +68,113 @@ def _start_mia_backend():
 
     mia.voice.on_audio_ready = push_audio
 
-    if SIMULATOR_MODE:
-        # Sin parlante local (el navegador reproduce el audio) y sin bucle de voz.
+    if WEB_MIC_MODE:
+        # El navegador captura el micro y reproduce la voz: no se abre el
+        # micrófono local ni el wake word, y no suena el parlante de esta máquina.
         mia.voice.local_playback = False
-        print("[SERVER] Modo SIMULADOR: escribe los comandos desde el navegador.")
+        print("[SERVER] Modo MICRÓFONO WEB: habla desde el navegador "
+              "(botón del micrófono).")
     else:
-        # Modo real: arranca el bucle de voz (wake word + micrófono).
+        # Modo Raspberry Pi: wake word "Mia" + micrófono USB local.
         mia.start()
+
+
+def quitar_wake_word(texto):
+    """Comprueba la palabra de activación y devuelve el pedido sin ella.
+
+    Devuelve None si no se nombró a MIA (hay que ignorar el clip), o el texto
+    restante (posiblemente vacío si solo se dijo "Mia").
+    """
+    norm = unicodedata.normalize("NFD", (texto or "").lower())
+    norm = "".join(c for c in norm if unicodedata.category(c) != "Mn")
+
+    variantes = {v for v in VOSK_WAKE_VARIANTS} | {WAKE_KEYWORD}
+    variantes = {
+        "".join(c for c in unicodedata.normalize("NFD", v)
+                if unicodedata.category(c) != "Mn")
+        for v in variantes
+    }
+
+    palabras = re.findall(r"[a-z0-9]+", norm)
+    if not (set(palabras) & variantes):
+        return None
+
+    # Quitar la palabra de activación (y la coma/vocativo que suele seguirla).
+    resto = re.sub(r"\b(" + "|".join(re.escape(v) for v in variantes) + r")\b",
+                   " ", norm)
+    resto = re.sub(r"\s+", " ", resto).strip(" ,.:;-¿?¡!")
+
+    # Devolver el tramo equivalente del texto ORIGINAL (con acentos y signos)
+    # cuando se pueda; si no, el normalizado ya sirve para el LLM.
+    return resto
 
 
 @socketio.on("sim_command")
 def handle_sim_command(data):
-    """Comando de texto escrito desde el navegador (modo simulador)."""
+    """Comando de texto (herramienta de depuración; la UI ya no lo usa)."""
     if not mia:
         return
     text = (data or {}).get("text", "").strip()
     if not text:
         return
-    print(f"[SERVER] Comando simulado: {text}")
+    print(f"[SERVER] Comando de texto: {text}")
     # Procesar en un hilo para no bloquear el servidor de sockets.
     threading.Thread(target=mia.handle_text, args=(text,), daemon=True).start()
+
+
+@socketio.on("voice_command")
+def handle_voice_command(data):
+    """Audio grabado con el micrófono del NAVEGADOR.
+
+    El navegador manda el clip en base64 (WebM/Opus). Aquí se transcribe con
+    Groq Whisper y se procesa igual que un comando dicho por el micro de la Pi.
+    """
+    if not mia:
+        return
+
+    payload = data or {}
+    audio_b64 = payload.get("audio_b64") or ""
+    if not audio_b64:
+        return
+
+    ext = (payload.get("ext") or "webm").lower()
+    # Micrófono ABIERTO: el clip debe empezar por la palabra de activación.
+    # Botón "pulsar para hablar": la intención ya es explícita, no hace falta.
+    requiere_wake = bool(payload.get("requiere_wake"))
+
+    try:
+        audio_bytes = base64.b64decode(audio_b64)
+    except Exception as e:
+        print(f"[SERVER][ERROR] Audio del navegador inválido: {e}")
+        return
+
+    print(f"[SERVER] Audio recibido del navegador ({len(audio_bytes) / 1024:.0f} KB, "
+          f"wake={'sí' if requiere_wake else 'no'}).")
+
+    def _procesar():
+        from stt import transcribe
+        socketio.emit("state_update", {"state": "thinking", "text": "Transcribiendo..."})
+        text = transcribe(audio_bytes, filename=f"comando.{ext}")
+        if not text:
+            socketio.emit("mic_error", {"message": "No te escuché bien, ¿me repites?"})
+            socketio.emit("state_update", {"state": "idle", "text": ""})
+            return
+
+        if requiere_wake:
+            limpio = quitar_wake_word(text)
+            if limpio is None:
+                # Se habló, pero sin nombrar a MIA: se ignora en silencio para
+                # que el micrófono abierto no reaccione a la charla del bar.
+                print(f"[SERVER] Sin palabra de activación, ignorado: {text!r}")
+                socketio.emit("state_update", {"state": "idle", "text": ""})
+                socketio.emit("mic_idle", {})
+                return
+            text = limpio or "¿Qué me recomiendas?"
+
+        socketio.emit("user_said", {"text": text})
+        mia.handle_text(text)
+
+    threading.Thread(target=_procesar, daemon=True).start()
 
 
 @app.route("/")
@@ -98,6 +190,12 @@ def index():
         for k, v in sorted(BOMBAS_CONFIG.items(), key=lambda kv: kv[1]["seg"])
     ]
     max_seg = max(v["seg"] for v in BOMBAS_CONFIG.values())
+    # La carta se genera desde RECETAS_COCTELES: así la pantalla nunca queda
+    # desincronizada con las recetas reales.
+    drinks = [
+        {"nombre": nombre, "ingredientes": list(receta.keys())}
+        for nombre, receta in RECETAS_COCTELES.items()
+    ]
     return render_template(
         "index.html",
         music_tracks=tracks,
@@ -105,6 +203,9 @@ def index():
         voice_volume=VOICE_VOLUME,
         pumps=pumps,
         max_seg=max_seg,
+        drinks=drinks,
+        web_mic=WEB_MIC_MODE,
+        wake_word=WAKE_KEYWORD_DISPLAY,
     )
 
 
@@ -123,22 +224,43 @@ def handle_audio_finished():
     pass
 
 
-def run(simulator=False):
+def _local_urls():
+    """URLs por las que se puede abrir el panel (útil para saber la IP de la Pi)."""
+    import socket as _socket
+
+    urls = [f"http://localhost:{WEB_PANEL_PORT}"]
+    try:
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))          # no envía nada: solo resuelve la IP local
+        ip = s.getsockname()[0]
+        s.close()
+        urls.append(f"http://{ip}:{WEB_PANEL_PORT}")
+    except Exception:
+        pass
+    return urls
+
+
+def run(web_mic=None):
     """Arranca MIA + el servidor web. Bloquea hasta Ctrl+C.
 
-    simulator=True: sin micrófono; los comandos se escriben en el navegador.
+    web_mic=True: el micrófono lo pone el navegador (pruebas desde la laptop).
+    web_mic=False: micrófono USB local + wake word (Raspberry Pi).
     """
-    global SIMULATOR_MODE
-    SIMULATOR_MODE = simulator
+    global WEB_MIC_MODE
+    if web_mic is not None:
+        WEB_MIC_MODE = web_mic
 
     backend = threading.Thread(target=_start_mia_backend, daemon=True)
     backend.start()
     time.sleep(1)
 
-    print("\n" + "=" * 50)
+    entrada = "micrófono del NAVEGADOR" if WEB_MIC_MODE else "micrófono LOCAL + wake word 'Mia'"
+    print("\n" + "=" * 56)
     print("PANEL WEB DE MIA INICIADO")
-    print(f"Abre http://[IP_DE_LA_PI]:{WEB_PANEL_PORT} en tu navegador.")
-    print("=" * 50 + "\n")
+    print(f"Entrada de voz: {entrada}")
+    for url in _local_urls():
+        print(f"  Abre  {url}")
+    print("=" * 56 + "\n")
 
     socketio.run(app, host="0.0.0.0", port=WEB_PANEL_PORT,
                  debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
