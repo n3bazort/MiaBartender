@@ -628,6 +628,7 @@
         .marker {
             position: absolute;
             left: 26px;
+            bottom: var(--pos, 0%);
             transform: translate(-50%, 50%);
             display: flex;
             align-items: center;
@@ -675,7 +676,7 @@
         #rail-cup {
             position: absolute;
             left: 26px;
-            bottom: 0;
+            bottom: var(--pos, 0%);
             transform: translate(-50%, 50%);
             width: 42px;
             height: 54px;
@@ -684,7 +685,7 @@
             border-radius: 6px 6px 14px 14px;
             background: rgba(255, 255, 255, .55);
             overflow: hidden;
-            transition: bottom .3s linear;
+            transition: bottom .3s linear, left .3s linear;
             box-shadow: 0 6px 16px rgba(70, 40, 110, .14);
         }
 
@@ -1403,8 +1404,11 @@
                 grid-template-rows: minmax(0, 1fr);
                 gap: 8px;
             }
+            /* Al servir NO se añade columna: el riel se vuelve horizontal y se
+               sobrepone a los subtítulos (ver más abajo), así el avatar se
+               queda a lo ancho. */
             body.pouring .stage {
-                grid-template-columns: minmax(0, 1fr) var(--col-menu) var(--col-rail);
+                grid-template-columns: minmax(0, 1fr) var(--col-menu);
             }
             /* grid-row:1 explícito en los tres: si no, colocar el centro en una
                columna anterior a la carta empuja el avatar a una 2ª fila. */
@@ -1461,10 +1465,63 @@
             .control { width: 46px; height: 46px; }
             .control .vol-label { font-size: .58rem; }
 
-            /* --- Riel del recorrido, más angosto --- */
-            #rail-cup { width: 30px; height: 40px; }
-            #rail-pct { font-size: .95rem; }
-            .rail-head .label { display: none; }
+            /* --- Riel del recorrido HORIZONTAL, sobre la franja de
+               subtítulos. Durante el servido la gente escucha, no lee: el riel
+               ocupa ese hueco y no roba una columna, así el avatar sigue a lo
+               ancho. --- */
+            body.pouring .subtitle-box { visibility: hidden; }
+
+            body.pouring #rail-panel {
+                grid-column: 1;
+                grid-row: 1;
+                align-self: end;
+                z-index: 6;
+                flex-direction: row;
+                align-items: center;
+                gap: 14px;
+                height: 98px;
+                margin: 0;
+                padding: 8px 20px;
+            }
+
+            /* Nombre del trago + % a la izquierda */
+            #rail-panel .rail-head { display: none; }
+            #rail-panel .rail-foot {
+                order: -1;
+                flex: none;
+                width: 118px;
+                text-align: left;
+            }
+            #rail-panel #rail-drink { font-size: .82rem; line-height: 1.15; }
+            #rail-panel #rail-pct {
+                font-size: 1.5rem;
+                text-align: left;
+                color: var(--accent-warm);
+            }
+
+            /* Pista horizontal: los marcadores y el vaso se colocan por 'left'
+               (var --pos) en vez de 'bottom'. */
+            #rail-panel .rail {
+                margin: 0;
+                min-height: 0;
+                height: 22px;
+                flex: 1 1 auto;
+            }
+            #rail-panel .rail-track {
+                left: 0; right: 0; top: 50%; bottom: auto;
+                width: auto; height: 10px;
+                transform: translateY(-50%);
+            }
+            #rail-panel .marker {
+                left: var(--pos); bottom: auto; top: 50%;
+                transform: translate(-50%, -50%);
+            }
+            #rail-panel .marker .lbl { display: none; }
+            #rail-panel #rail-cup {
+                left: var(--pos); bottom: auto; top: 50%;
+                transform: translate(-50%, -50%);
+                width: 26px; height: 34px;
+            }
 
             /* --- Barra inferior fina (controles de micrófono) --- */
             .bottombar { min-height: 0; padding-top: 0; }
@@ -2393,7 +2450,9 @@
             pumps.forEach(p => {
                 const m = document.createElement('div');
                 m.className = 'marker';
-                m.style.bottom = (railFrac(p.seg) * 100) + '%';
+                // --pos: posición 0-100% a lo largo del riel. El CSS decide si
+                // es vertical (bottom) u horizontal (left) según la pantalla.
+                m.style.setProperty('--pos', (railFrac(p.seg) * 100) + '%');
                 const num = (p.pump || '').split('_')[1] || '';
                 m.innerHTML = `<span class="dot"></span>` +
                     `<span class="lbl">${num}· ${p.ingrediente || ''}</span>`;
@@ -2406,9 +2465,9 @@
         function moveCup(toSeg, duration) {
             const dur = Math.max(0.15, Number(duration) || 0.15);
             railCup.style.transitionDuration = dur + 's';
-            // bottom en %: el translateY(-50%) mantiene el vaso centrado en el punto
+            // --pos: el CSS lo aplica a bottom (vertical) o left (horizontal).
             requestAnimationFrame(() => {
-                railCup.style.bottom = (railFrac(toSeg) * 100) + '%';
+                railCup.style.setProperty('--pos', (railFrac(toSeg) * 100) + '%');
             });
         }
 
