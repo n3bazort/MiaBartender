@@ -1325,13 +1325,155 @@
             .subtitle-box { max-width: 1050px; }
         }
 
-        /* Alturas reducidas (tablet horizontal comprimida) */
-        @media (max-height: 620px) {
-            .subtitle-box { height: 88px; padding: 8px 18px; }
-            .avatar-container { padding-bottom: 20px; }
-            .control { width: 54px; height: 54px; }
-            .control .vol-label { display: none; }
-            .vol-pop { height: 140px; }
+        /* Distintivo destacado de activación por voz "Mia" */
+        .wake-word-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(0, 240, 255, 0.18));
+            border: 1.5px solid rgba(168, 85, 247, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 0 16px rgba(168, 85, 247, 0.25);
+            font-size: clamp(.78rem, 1.1vw, .92rem);
+            color: #ffffff;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .wake-word-badge strong {
+            color: var(--color-idle, #00f0ff);
+            font-weight: 800;
+            font-size: 1.1em;
+            letter-spacing: .5px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, .7);
+        }
+
+        .pulse-mic {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-listen, #00ff88);
+            animation: micGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes micGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px #00ff88); }
+            50%      { transform: scale(1.18); filter: drop-shadow(0 0 8px #00ff88); }
+        }
+
+        /* ============================================================
+           PANTALLA DSI 800×480 de la Raspberry Pi — vista a ~1 metro.
+           Layout dedicado: avatar protagonista + subtítulos grandes y
+           legibles, carta compacta a la DERECHA, barras finas. Manda el
+           conjunto en un solo bloque (va el último, gana la cascada), sin
+           depender de lo que dejaron las media queries de tablet/móvil.
+           ============================================================ */
+        @media (max-height: 600px) and (orientation: landscape) {
+            :root {
+                --col-menu: 190px;
+                --col-rail: 104px;
+                --gap: 6px;
+                --pad: 8px;
+                --pad-y: 6px;
+                --r-frame: 14px;
+                --r-lg: 16px;
+                --r-md: 14px;
+            }
+
+            .app {
+                gap: 6px;
+                padding: 6px 8px;
+            }
+
+            /* --- Barra superior fina --- */
+            .topbar { min-height: 30px; }
+            .status-pill { padding: 5px 12px 5px 10px; font-size: .74rem; gap: 7px; }
+            .status-dot { width: 8px; height: 8px; }
+
+            /* --- Escenario: avatar (ancho) | carta (estrecha) | riel --- */
+            /* La carta va a la derecha; el riel aparece como 3ª columna al
+               servir. Se reponen columnas y áreas por si las media queries
+               anteriores dejaron el modo apilado. */
+            .stage {
+                grid-template-columns: minmax(0, 1fr) var(--col-menu);
+                grid-template-areas: none;
+                grid-template-rows: minmax(0, 1fr);
+                gap: 8px;
+            }
+            body.pouring .stage {
+                grid-template-columns: minmax(0, 1fr) var(--col-menu) var(--col-rail);
+            }
+            /* grid-row:1 explícito en los tres: si no, colocar el centro en una
+               columna anterior a la carta empuja el avatar a una 2ª fila. */
+            .center     { grid-area: auto; grid-column: 1; grid-row: 1; gap: 6px; }
+            .side-left  { grid-area: auto; grid-column: 2; grid-row: 1; flex-direction: column; }
+            #rail-panel { grid-area: auto; grid-column: 3; grid-row: 1; }
+
+            /* --- Avatar lo más grande posible --- */
+            .avatar-container { padding-bottom: 13px; }
+            .avatar-ring { animation-duration: 9s; }        /* flotar más sutil */
+
+            /* --- Chip de estado compacto --- */
+            .state-chip { padding: 5px 13px; gap: 7px; }
+            #state-text { font-size: .74rem; letter-spacing: .13em; }
+
+            /* --- Subtítulos: lo que MÁS importa a 1 m. Caja baja pero el
+               texto arranca grande; fitSubtitle() lo encoge solo si la frase
+               es larga, así los mensajes cortos se ven bien grandes. --- */
+            .subtitle-box {
+                height: 98px;
+                max-width: none;
+                padding: 8px 18px;
+                gap: 3px;
+                border-radius: 16px;
+            }
+            .sub-label { font-size: .72rem; letter-spacing: .04em; }
+            #subtitle-text { font-size: 1.42rem; line-height: 1.2; }
+
+            /* --- Carta compacta (columna derecha) --- */
+            #drink-menu {
+                flex-direction: column;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 7px;
+                gap: 4px;
+                border-radius: var(--r-md);
+            }
+            .menu-title {
+                border-bottom: 1px solid var(--glass-line);
+                border-right: none;
+                padding: 2px 4px 5px;
+                margin: 0 0 3px;
+                flex: none;
+            }
+            .menu-title .label { display: inline; font-size: .74rem; }
+            .menu-title .ic { font-size: 1.15em; }
+            .menu-item { flex: none; padding: 6px 9px; gap: 8px; }
+            .menu-item .name { font-size: .9rem; white-space: normal; }
+            .menu-item .ings { display: none; }
+            .menu-item.active::before { display: block; }
+
+            /* --- Controles de volumen bajo la carta --- */
+            .controls-touch { padding: 5px; gap: 8px; border-radius: var(--r-md); }
+            .control { width: 46px; height: 46px; }
+            .control .vol-label { font-size: .58rem; }
+
+            /* --- Riel del recorrido, más angosto --- */
+            #rail-cup { width: 30px; height: 40px; }
+            #rail-pct { font-size: .95rem; }
+            .rail-head .label { display: none; }
+
+            /* --- Barra inferior fina (controles de micrófono) --- */
+            .bottombar { min-height: 0; padding-top: 0; }
+            #btn-mic { width: 46px; height: 46px; }
+            #btn-mic .ic { font-size: 1.25rem; }
+            .mode-switch { transform: translateY(-50%) scale(.82); }
+            .mode-switch.ejemplo, .mic-hint { font-size: .74rem; }
+            .mic-hint.ejemplo { width: 210px; padding: 7px 12px; }
+            .wake-hint { font-size: .82rem; padding: 5px 12px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -1479,7 +1621,7 @@
             <section class="center">
                 <div class="avatar-container" id="mia-face">
                     <div class="avatar-ring">
-                        <img id="avatar-img" src="/static/avatars/neutral.png" alt="MIA Avatar">
+                        <img id="avatar-img" src="/static/avatars/neutral.webp" alt="MIA Avatar">
                         <div class="state-chip">
                             <span class="pip"></span>
                             <h2 id="state-text">DURMIENDO</h2>
@@ -1493,7 +1635,7 @@
                         <span class="who"></span>
                         <span class="dots"><i></i><i></i><i></i></span>
                     </div>
-                    <p id="subtitle-text">...</p>
+                    <p id="subtitle-text">Di «{{ wake_word|default('Mia') }}» para hablarme</p>
                 </div>
             </section>
 
@@ -1517,10 +1659,8 @@
             </aside>
         </main>
 
-        <!-- ===== Barra inferior: micrófono (MIA se maneja por voz) ===== -->
+        <!-- ===== Barra inferior: controles de micrófono (Pulsar / Abierto) ===== -->
         <footer class="bottombar">
-            {% if web_mic|default(true) %}
-            <!-- Pruebas desde la laptop: el navegador capta el micrófono -->
             <div class="mic-wrap">
                 <button id="mic-mode" class="mode-switch" type="button"
                         title="Pulsar para hablar o micrófono siempre abierto">
@@ -1534,13 +1674,6 @@
                 </button>
                 <div class="mic-hint" id="mic-hint">Toca para hablar</div>
             </div>
-            {% else %}
-            <!-- Raspberry Pi: el micrófono USB escucha sola la palabra "Mia" -->
-            <div class="wake-hint">
-                <svg class="ic"><use href="#i-mic" /></svg>
-                <span>Di <b>«{{ wake_word|default('Alexa') }}»</b> para hablarme</span>
-            </div>
-            {% endif %}
         </footer>
     </div>
 
@@ -2074,25 +2207,82 @@
         const initMusicVol = (typeof window.MIA_MUSIC_VOLUME === 'number') ? window.MIA_MUSIC_VOLUME : 0.4;
         if (bgMusic) bgMusic.volume = initMusicVol;
 
-        function pickRandomTrack() {
+        let musicDucked = false;
+        let currentMusicMode = 'idle';
+        let userMusicVol = (typeof window.MIA_MUSIC_VOLUME === 'number') ? window.MIA_MUSIC_VOLUME : 0.4;
+
+        function pickTrackForMode(mode) {
             const tracks = window.MIA_MUSIC_TRACKS || [];
             if (!tracks.length) return null;
-            return tracks[Math.floor(Math.random() * tracks.length)];
+            const idleTracks = [];
+            const prepTracks = [];
+
+            tracks.forEach(t => {
+                const lower = t.toLowerCase();
+                if (lower.includes('prep') || lower.includes('coctel') || lower.includes('cocktail')) {
+                    prepTracks.push(t);
+                } else if (lower.includes('espera') || lower.includes('idle') || lower.includes('hold')) {
+                    idleTracks.push(t);
+                } else {
+                    idleTracks.push(t);
+                }
+            });
+
+            const targetList = (mode === 'prep' && prepTracks.length) ? prepTracks : (idleTracks.length ? idleTracks : tracks);
+            return targetList[Math.floor(Math.random() * targetList.length)];
         }
 
-        socket.on('music_start', () => {
+        function applyMusicVolume() {
             if (!bgMusic) return;
-            const track = pickRandomTrack();
+            const factor = musicDucked ? 0.70 : 1.0; // Baja un 30% si le están hablando
+            bgMusic.volume = Math.max(0, Math.min(1, userMusicVol * factor));
+        }
+
+        function playMusicMode(mode) {
+            if (!bgMusic) return;
+            if (currentMusicMode === mode && bgMusic.src && !bgMusic.paused) {
+                applyMusicVolume();
+                return;
+            }
+            currentMusicMode = mode;
+            const track = pickTrackForMode(mode);
             if (!track) return;
             bgMusic.src = track;
-            bgMusic.play().catch(e => console.warn('No se pudo iniciar la música:', e));
+            applyMusicVolume();
+            bgMusic.play().catch(e => console.warn('Música diferida hasta interacción del usuario:', e));
+        }
+
+        socket.on('music_state', (data) => {
+            if (!bgMusic) return;
+            if (data.stopped) {
+                bgMusic.pause();
+                bgMusic.currentTime = 0;
+                currentMusicMode = null;
+                return;
+            }
+            musicDucked = !!data.ducked;
+            applyMusicVolume();
+            if (data.mode) {
+                playMusicMode(data.mode);
+            }
+        });
+
+        socket.on('music_start', () => {
+            playMusicMode('idle');
         });
 
         socket.on('music_stop', () => {
             if (!bgMusic) return;
             bgMusic.pause();
             bgMusic.currentTime = 0;
+            currentMusicMode = null;
         });
+
+        document.addEventListener('pointerdown', () => {
+            if (bgMusic && bgMusic.paused && currentMusicMode) {
+                playMusicMode(currentMusicMode || 'idle');
+            }
+        }, { once: true });
 
         // ============================================================
         // CONTROLES DE VOLUMEN
@@ -2161,7 +2351,10 @@
 
         setupVolumeControl(
             document.getElementById('music-control'),
-            (nivel) => { if (bgMusic) bgMusic.volume = nivel; },
+            (nivel) => {
+                userMusicVol = nivel;
+                applyMusicVolume();
+            },
             initMusicVol
         );
 
@@ -2317,22 +2510,22 @@
         }
 
 
-        // Mapa de imágenes
+        // Mapa de imágenes (versión WebP super optimizada)
         const imgMap = {
-            neutral: '/static/avatars/neutral.png',
-            feliz: '/static/avatars/feliz.png',
-            riendose: '/static/avatars/riendose.png',
-            enojada: '/static/avatars/enojada.png',
-            triste: '/static/avatars/triste.png',
-            llorando: '/static/avatars/llorando.png',
-            pensando: '/static/avatars/pensando.png',
-            vision: '/static/avatars/cuerpo-completo.jpeg',
-            hablando: '/static/avatars/hablando.png',
-            blink: '/static/avatars/neutral-ojo-cerrado.jpeg',
-            boca_abierta_ojos_cerrado: '/static/avatars/boca-abierta-ojos-cerrado.png',
-            hablando_semi_abierta: '/static/avatars/hablando_semi_abierta.png',
-            hablando_media_abierta: '/static/avatars/hablando_media_abierta.png',
-            hablando_pronunciando: '/static/avatars/hablando_pronunciando.png'
+            neutral: '/static/avatars/neutral.webp',
+            feliz: '/static/avatars/feliz.webp',
+            riendose: '/static/avatars/riendose.webp',
+            enojada: '/static/avatars/enojada.webp',
+            triste: '/static/avatars/triste.webp',
+            llorando: '/static/avatars/llorando.webp',
+            pensando: '/static/avatars/pensando.webp',
+            vision: '/static/avatars/cuerpo-completo.webp',
+            hablando: '/static/avatars/hablando.webp',
+            blink: '/static/avatars/neutral-ojo-cerrado.webp',
+            boca_abierta_ojos_cerrado: '/static/avatars/boca-abierta-ojos-cerrado.webp',
+            hablando_semi_abierta: '/static/avatars/hablando_semi_abierta.webp',
+            hablando_media_abierta: '/static/avatars/hablando_media_abierta.webp',
+            hablando_pronunciando: '/static/avatars/hablando_pronunciando.webp'
         };
 
         let currentEmotion = 'neutral';
@@ -2341,10 +2534,10 @@
 
         // Frames para la animación de pensar
         const thinkingFrames = [
-            '/static/avatars/pensando.png',
-            '/static/avatars/pensando2.jpeg',
-            '/static/avatars/pensando3.jpeg',
-            '/static/avatars/pensando4.jpeg'
+            '/static/avatars/pensando.webp',
+            '/static/avatars/pensando2.webp',
+            '/static/avatars/pensando3.webp',
+            '/static/avatars/pensando4.webp'
         ];
         let currentThinkingFrame = 0;
         let thinkingInterval = null;
@@ -2614,7 +2807,7 @@
                     highlightDrink(null);
                     stateText.textContent = 'DURMIENDO';
                     stateText.style.color = '#9ca3af';
-                    setSubtitle('...');
+                    setSubtitle('Di «Mia» para hablarme');
                     document.body.classList.remove('serving');
                     avatarImg.classList.remove('pouring-glow');
                     // Si estaba muy alterada, en idle se relaja a neutral o mantiene feliz
