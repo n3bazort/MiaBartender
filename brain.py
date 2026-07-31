@@ -26,11 +26,12 @@ from config import (
     RECETAS_COCTELES, BOMBAS_CONFIG,
     TTS_VOICE, PUMP_PINS, FLOW_RATE_ML_S, MAX_PUMP_SECONDS,
     PIN_MOTOR_IN1, PIN_MOTOR_IN2, PIN_MOTOR_ENA,
-    WAKE_KEYWORD_DISPLAY,
+    WAKE_KEYWORD_DISPLAY, obtener_frase_no_entendido,
 )
 
 ACCIONES_VALIDAS = {"preparar", "responder", "no_disponible", "fuera_de_tema"}
-EMOCIONES_VALIDAS = {"feliz", "guino", "pensando", "risa", "neutral"}
+# Deben coincidir con las imágenes del avatar (imgMap en index.html).
+EMOCIONES_VALIDAS = {"neutral", "feliz", "riendose", "pensando", "enojada", "triste"}
 
 # --- Frases para entrar/salir del MODO AUDITOR (explica cómo funciona) ---
 # Se comprueba SALIR antes que ENTRAR.
@@ -199,10 +200,10 @@ class Brain:
             data = json.loads(raw)
         except json.JSONDecodeError as e:
             print(f"[BRAIN][ERROR] JSON inválido del LLM: {e}")
-            return self._fallback("Perdón, no te entendí bien. ¿Me repites qué cóctel quieres?")
+            return self._fallback(obtener_frase_no_entendido())
         except Exception as e:
             print(f"[BRAIN][ERROR] Falló la llamada a Groq: {e}")
-            return self._fallback("Uy, se me trabó el cerebro un segundo. ¿Lo intentamos de nuevo?")
+            return self._fallback(obtener_frase_no_entendido())
 
         result = self._validate(data)
 
@@ -297,7 +298,9 @@ class Brain:
         return None
 
     @staticmethod
-    def _fallback(mensaje):
+    def _fallback(mensaje=None):
+        if not mensaje:
+            mensaje = obtener_frase_no_entendido()
         return {
             "accion": "responder",
             "coctel": None,
