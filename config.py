@@ -123,11 +123,23 @@ COMMAND_PHRASE_LIMIT = 15
 # ============================================================
 # VOZ (TTS) — motor configurable
 # ============================================================
+# "fish"       = Fish Audio (https://fish.audio): mucha variedad de voces y una
+#                capa gratis más generosa que ElevenLabs. Requiere API key propia.
 # "elevenlabs" = voz muy natural y con emoción (capa gratis ~10 min/mes, requiere
 #                cuenta gratuita en https://elevenlabs.io — acepta gmail, sin tarjeta).
 # "edge"       = edge-tts de Microsoft: gratis, sin cuenta, pero más robótica.
-# Si se elige "elevenlabs" pero falta la API key o falla la llamada, cae a "edge".
-TTS_ENGINE = os.getenv("TTS_ENGINE", "elevenlabs").lower()
+# Si el motor elegido no tiene API key o falla la llamada, cae automáticamente a "edge".
+TTS_ENGINE = os.getenv("TTS_ENGINE", "edge").lower()
+
+# --- Fish Audio (https://fish.audio) ---
+# Deja tu clave en .env (NUNCA en el código). Créala gratis en
+# https://fish.audio -> Settings -> API Keys.
+FISH_AUDIO_API_KEY = os.getenv("FISH_AUDIO_API_KEY", "")
+# ID de la voz ("reference_id"). Elige una voz en https://fish.audio, ábrela y
+# copia el ID de su modelo. Si se deja vacío, Fish Audio usa su voz por defecto.
+FISH_AUDIO_VOICE_ID = os.getenv("FISH_AUDIO_VOICE_ID", "")
+# Modelo de síntesis: "speech-1.6" (recomendado), "speech-1.5" o "s1".
+FISH_AUDIO_MODEL = os.getenv("FISH_AUDIO_MODEL", "speech-1.6")
 
 # --- ElevenLabs ---
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")

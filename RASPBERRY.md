@@ -187,11 +187,13 @@ deje de funcionar, porque solo sustituyen a algo que ya está resuelto:
 
 | Mejora opcional | Sustituye a | Qué aporta | Coste |
 |---|---|---|---|
-| **ElevenLabs** | edge-tts | Voz más natural y con emoción | Gratis ~10 min/mes |
+| **Fish Audio** | edge-tts | Muchas voces y más créditos gratis | Gratis, requiere clave |
+| **ElevenLabs** | edge-tts | Voz muy natural y con emoción | Gratis ~10 min/mes |
 | **Picovoice** | Vosk | Gasta menos CPU en la Pi | Exige correo de empresa |
 
-> **En resumen:** solo necesitas registrarte en **Groq**. Si además quieres la
-> voz bonita, registrarte también en ElevenLabs. Nada más.
+> **En resumen:** solo necesitas registrarte en **Groq**. Si además quieres una
+> voz más bonita y con variedad, registrarte en **Fish Audio** (la opción
+> recomendada por sus créditos) o en ElevenLabs. Nada más.
 
 ### GROQ_API_KEY — la única clave que tienes que sacar
 
@@ -220,22 +222,45 @@ Por defecto usa **edge-tts** de Microsoft: gratis, ilimitado y **sin cuenta ni
 clave**. Ya viene instalado y funciona solo. Con eso MIA habla perfectamente,
 solo que con una entonación algo más plana.
 
-**ELEVENLABS_API_KEY** solo mejora esa voz: la hace más natural y con emoción.
+Hay **tres motores** de voz; se elige con `TTS_ENGINE` en el `.env`. Pase lo
+que pase, si el motor elegido no tiene clave o falla, MIA **no se rompe**: avisa
+por consola y sigue hablando con edge-tts.
 
-Si pones `TTS_ENGINE=elevenlabs` pero te falta la clave, MIA **no se rompe**:
-avisa por consola y sigue con edge-tts. Lo mismo si se te agotan los minutos.
+**Opción recomendada — Fish Audio** (muchas voces y una capa gratis más
+generosa que ElevenLabs):
 
-- **Sácala en:** https://elevenlabs.io
-- Cuenta gratis con Gmail, sin tarjeta.
-- **Perfil (arriba a la derecha) → API Keys**
-- La capa gratis da unos **10 minutos de audio al mes**. Cuando se agota, MIA
-  deja de hablar con esa voz: cambia `TTS_ENGINE=edge` y sigue funcionando.
+1. Crea cuenta gratis en https://fish.audio
+2. **Settings → API Keys** → crea una clave y cópiala.
+3. Elige una voz en fish.audio, ábrela y copia el **ID de su modelo**.
+4. En el `.env`:
+
+```
+TTS_ENGINE=fish
+FISH_AUDIO_API_KEY=tu_clave_de_fish_audio
+FISH_AUDIO_VOICE_ID=el_id_de_la_voz_que_elegiste
+```
+
+> El `FISH_AUDIO_VOICE_ID` es opcional: si lo dejas vacío, usa la voz por
+> defecto de Fish Audio. El modelo se puede fijar con `FISH_AUDIO_MODEL`
+> (`speech-1.6` por defecto).
+
+**Alternativa — ElevenLabs** (muy natural, pero solo ~10 min gratis al mes):
+
+1. Cuenta gratis en https://elevenlabs.io (Gmail, sin tarjeta).
+2. **Perfil (arriba a la derecha) → API Keys**.
+3. En el `.env`:
 
 ```
 TTS_ENGINE=elevenlabs
 ELEVENLABS_API_KEY=tu_clave_aqui
-ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+ELEVENLABS_VOICE_ID=EXAVITQu4vr4xnSDxMaL
 ```
+
+> Cuando se agotan los minutos, MIA cae sola a edge-tts. Para volver a la voz
+> gratis a propósito: `TTS_ENGINE=edge`.
+
+> **Las claves van en tu `.env` de la Pi, NUNCA en el código ni en GitHub.** El
+> repositorio solo trae ejemplos con texto de relleno que tú reemplazas.
 
 Para usar solo la voz gratis, sin cuenta de ElevenLabs:
 

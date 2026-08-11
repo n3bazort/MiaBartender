@@ -27,11 +27,15 @@ import edge_tts
 from config import (
     TTS_ENGINE, TTS_VOICE, AUDIO_PLAYER_CMD, AUDIO_OUTPUT_DEVICE,
     ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL,
+    FISH_AUDIO_API_KEY, FISH_AUDIO_VOICE_ID, FISH_AUDIO_MODEL,
 )
 
 # Orden de ciclo de proveedores y sus nombres "hablables".
-ENGINE_ORDER = ["elevenlabs", "edge"]
-ENGINE_NAMES = {"elevenlabs": "ElevenLabs", "edge": "Microsoft"}
+ENGINE_ORDER = ["fish", "elevenlabs", "edge"]
+ENGINE_NAMES = {"fish": "Fish Audio", "elevenlabs": "ElevenLabs", "edge": "Microsoft"}
+
+# Qué clave necesita cada motor (edge no necesita ninguna).
+ENGINE_API_KEYS = {"fish": FISH_AUDIO_API_KEY, "elevenlabs": ELEVENLABS_API_KEY}
 
 
 class Voice:
@@ -42,11 +46,13 @@ class Voice:
         self.is_speaking = False
         self._running = True
 
-        # Motor de voz activo. Si se pidió ElevenLabs sin API key, avisa y usa edge.
+        # Motor de voz activo. Si el motor pedido necesita clave y falta, avisa
+        # y cae a edge-tts (gratis, sin cuenta).
         self._engine = TTS_ENGINE
-        if self._engine == "elevenlabs" and not ELEVENLABS_API_KEY:
-            print("[VOICE][AVISO] TTS_ENGINE=elevenlabs pero falta ELEVENLABS_API_KEY. "
-                  "Usando edge-tts. Pon tu clave en .env para la voz natural.")
+        if self._engine in ENGINE_API_KEYS and not ENGINE_API_KEYS[self._engine]:
+            falta = "FISH_AUDIO_API_KEY" if self._engine == "fish" else "ELEVENLABS_API_KEY"
+            print(f"[VOICE][AVISO] TTS_ENGINE={self._engine} pero falta {falta}. "
+                  f"Usando edge-tts. Pon tu clave en .env para la voz premium.")
             self._engine = "edge"
         print(f"[VOICE] Motor de voz: {self._engine}")
 
@@ -80,9 +86,9 @@ class Voice:
     # ------------------------------------------------------------------
 
     def available_engines(self):
-        """Proveedores realmente usables (edge siempre; elevenlabs si hay API key)."""
+        """Proveedores realmente usables (edge siempre; los demás si hay API key)."""
         return [e for e in ENGINE_ORDER
-                if e == "edge" or (e == "elevenlabs" and ELEVENLABS_API_KEY)]
+                if e == "edge" or ENGINE_API_KEYS.get(e)]
 
     def next_engine(self):
         """Devuelve el siguiente proveedor disponible al actual (ciclo)."""
@@ -153,14 +159,17 @@ class Voice:
 
     def _synthesize(self, text):
         """Genera el MP3 en memoria con el motor activo (con respaldo a edge-tts)."""
-        if self._engine == "elevenlabs":
+        premium = {"fish": self._synthesize_fish,
+                   "elevenlabs": self._synthesize_elevenlabs}
+        fn = premium.get(self._engine)
+        if fn:
             try:
-                audio = self._synthesize_elevenlabs(text)
+                audio = fn(text)
                 if audio:
                     return audio
-                print("[VOICE][AVISO] ElevenLabs no devolvió audio; uso edge-tts.")
+                print(f"[VOICE][AVISO] {self._engine} no devolvió audio; uso edge-tts.")
             except Exception as e:
-                print(f"[VOICE][AVISO] Falló ElevenLabs ({e}); uso edge-tts.")
+                print(f"[VOICE][AVISO] Falló {self._engine} ({e}); uso edge-tts.")
         return self._synthesize_edge(text)
 
     @staticmethod
@@ -174,6 +183,43 @@ class Voice:
                     audio += chunk["data"]
             return audio
         return asyncio.run(_run())
+
+    @staticmethod
+    def _synthesize_fish(text):
+        """Genera el MP3 en memoria con la API de Fish Audio (https://fish.audio).
+
+        La clave sale de FISH_AUDIO_API_KEY (nunca del código). El 'reference_id'
+        es la voz elegida; si está vacío, Fish Audio usa su voz por defecto.
+        """
+        payload = {
+            "text": text,
+            "format": "mp3",
+            "mp3_bitrate": 128,
+            "normalize": True,
+            "latency": "normal",
+        }
+        if FISH_AUDIO_VOICE_ID:
+            payload["reference_id"] = FISH_AUDIO_VOICE_ID
+        body = json.dumps(payload).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://api.fish.audio/v1/tts", data=body, method="POST",
+            headers={
+                "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
+                "Content-Type": "application/json",
+                # Selecciona el modelo de síntesis (speech-1.6 / speech-1.5 / s1).
+                "model": FISH_AUDIO_MODEL,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            try:
+                detail = e.read().decode("utf-8", "ignore")[:300]
+            except Exception:
+                detail = ""
+            raise RuntimeError(f"HTTP {e.code} — {detail}") from None
 
     @staticmethod
     def _synthesize_elevenlabs(text):
