@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>MIA UI FIXED - V2</title>
+
+<style>
+
+/* ================= RESET ================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; font-family: sans-serif; }
+
+/* ================= VARIABLES ================= */
+:root {
+    --col-menu: 180px;
+    --gap: 10px;
+    --bg: linear-gradient(135deg,#f6e9ff,#e2f4ff);
+}
+
+/* ================= APP ================= */
+.app {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 8px;
+    gap: var(--gap);
+    background: var(--bg);
+}
+
+/* ================= TOPBAR ================= */
+.topbar {
+    height: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ================= STAGE (FIXED) ================= */
+.stage {
+    display: grid;
+    grid-template-columns: var(--col-menu) 1fr;
+    gap: var(--gap);
+    position: relative; /* importante para overlay */
+}
+
+/* ================= MENU ================= */
+.side-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+}
+
+#drink-menu {
+    background: rgba(255,255,255,.6);
+    padding: 10px;
+    border-radius: 12px;
+}
+
+.menu-item {
+    padding: 6px;
+}
+
+/* ================= CENTER ================= */
+.center {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 0;
+}
+
+/* ================= AVATAR ================= */
+.avatar-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 0;
+}
+
+.avatar-ring {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    aspect-ratio: 16/9;
+}
+
+#avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 20px;
+}
+
+/* ================= SUBTITLE ================= */
+.subtitle-box {
+    height: 80px;
+    background: rgba(255,255,255,.7);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#subtitle-text {
+    font-size: 1rem;
+}
+
+/* ================= RAIL (OVERLAY FIX) ================= */
+#rail-panel {
+    position: absolute;
+    right: 10px;
+    top: 60px;
+    bottom: 70px;
+    width: 90px;
+
+    background: rgba(255,255,255,.6);
+    border-radius: 12px;
+
+    opacity: 0;
+    transform: translateX(20px);
+    transition: .3s;
+    pointer-events: none;
+}
+
+body.pouring #rail-panel {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+/* ================= BOTTOM ================= */
+.bottombar {
+    display: flex;
+    justify-content: center;
+}
+
+/* ================= RESPONSIVE 800x400 ================= */
+@media (max-height: 500px) {
+
+    :root {
+        --col-menu: 150px;
+    }
+
+    .avatar-ring {
+        max-height: 220px;
+    }
+
+    .subtitle-box {
+        height: 55px;
+    }
+
+    #subtitle-text {
+        font-size: .85rem;
+    }
+
+    #rail-panel {
+        width: 70px;
+    }
+}
+
+/* ================= VISUAL FIX ================= */
+body.pouring #avatar-img {
+    filter: brightness(.9);
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="topbar">
+        <span>MIA Conectada</span>
+        <span>Di "Mia"</span>
+    </div>
+
+    <div class="stage">
+
+        <aside class="side-left">
+            <div id="drink-menu">
+                <div class="menu-item">Paloma</div>
+                <div class="menu-item">Margarita</div>
+                <div class="menu-item">Tequila</div>
+            </div>
+        </aside>
+
+        <section class="center">
+
+            <div class="avatar-container">
+                <div class="avatar-ring">
+                    <img id="avatar-img" src="https://i.imgur.com/7yUvePI.png">
+                </div>
+            </div>
+
+            <div class="subtitle-box">
+                <p id="subtitle-text">Te escucho...</p>
+            </div>
+
+        </section>
+
+        <!-- 🔥 RAIL AHORA OVERLAY -->
+        <div id="rail-panel"></div>
+
+    </div>
+
+    <div class="bottombar">
+        <button>🎤</button>
+    </div>
+
+</div>
+
+<script>
+
+/* Simulación */
+setTimeout(()=>{
+    document.body.classList.add("pouring");
+},2000);
+
+</script>
+
+</body>
+</html>

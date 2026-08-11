@@ -102,14 +102,16 @@ y el motor conectados el consumo sube. Conviene una fuente de **5 V 3 A** o
 alimentar el audio por un hub USB con corriente propia. Puede además ser la
 causa del problema del micrófono.
 
-### 3.3 La interfaz no encaja en 800×480
+### 3.3 La interfaz no encaja en 800×480 (Tarea pendiente)
 
-La pantalla es de 800×480 pero el diseño se hizo para 1280×800. A esa
-resolución el diseño colapsa al modo apilado: **el avatar queda en 210×118 px**
-y el menú se convierte en una barra horizontal que come altura.
+La pantalla real montada en la Raspberry Pi es la **pantalla DSI de 800×480 píxeles** (conectada por cable plano, confirmada directo en la Pi `card0-DSI-1: 800x480`).
 
-Hay que rehacer los puntos de corte para una pantalla **apaisada y pequeña**:
-avatar grande en el centro, menú estrecho, subtítulos compactos.
+El diseño actual está pensado para 1280×800 (tablet), por lo que a 800×480 el layout colapsa y el avatar se reduce a 210×118 px mientras que el menú horizontal consume excesiva altura.
+
+**Objetivo pendiente:** Rehacer el CSS y los breakpoints específicamente para 800×480 (apaisada y pequeña), priorizando:
+- Avatar grande y centrado.
+- Menú lateral o flotante ultra-compacto.
+- Subtítulos y controles de voz optimizados para altura reducida (480px).
 
 ### 3.4 Varias personas trabajando sobre la misma Pi
 

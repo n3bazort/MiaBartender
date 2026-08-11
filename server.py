@@ -35,6 +35,8 @@ except AttributeError:
     pass
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 mia = None
@@ -167,7 +169,8 @@ def handle_voice_command(data):
             text = transcribe(audio_bytes, filename=f"comando.{ext}")
             if not text:
                 if not requiere_wake:
-                    socketio.emit("mic_error", {"message": "No te escuché bien, ¿me repites?"})
+                    from config import obtener_frase_no_entendido
+                    socketio.emit("mic_error", {"message": obtener_frase_no_entendido()})
                     socketio.emit("state_update", {"state": "idle", "text": ""})
                 else:
                     socketio.emit("mic_idle", {})

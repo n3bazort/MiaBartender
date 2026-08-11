@@ -73,13 +73,39 @@ class VoiceAssistant:
         print("=" * 50)
 
     # ------------------------------------------------------------------
-    # Estado (para el panel web)
+    # Estado (para el panel web y control de música)
     # ------------------------------------------------------------------
 
     def set_state(self, new_state, data=None):
         self.state = new_state
+        self._update_music_for_state(new_state)
         if self.on_state_change:
             self.on_state_change(new_state, data)
+
+    def _update_music_for_state(self, state):
+        """Actualiza el modo de música y la atenuación según el estado actual."""
+        mode = "idle"
+        ducked = False
+
+        if state == "idle":
+            mode = "idle"
+            ducked = False
+        elif state in ("listening", "thinking", "speaking"):
+            # Mientras escucha o habla MIA, atenuamos un 30% (-30%) la música
+            mode = "prep" if self.state == "preparing_drink" else "idle"
+            ducked = True
+        elif state == "preparing_drink":
+            mode = "prep"
+            ducked = False
+
+        # Parlante local (Pi)
+        if hasattr(self, "music") and self.voice and getattr(self.voice, "local_playback", True):
+            self.music.set_ducked(ducked)
+            self.music.play(mode=mode)
+
+        # Panel web (Navegador)
+        if self.socketio:
+            self.socketio.emit("music_state", {"mode": mode, "ducked": ducked})
 
     # ------------------------------------------------------------------
     # Procesamiento de un comando (texto -> respuesta -> acción)
@@ -119,16 +145,15 @@ class VoiceAssistant:
             )
             dispense_thread.start()
 
-            # OPCIÓN A (por turnos): primero MIA habla su dato curioso (sin música),
+            # Si hay dato curioso, MIA lo dice (música atenuada mientras habla)
             if dato:
+                self.set_state("speaking", data=dato)
                 self._speak_blocking(dato)
 
-            # ...y luego, si la bebida sigue sirviéndose, suena la música de espera
-            # para rellenar el silencio hasta que termine el dispensado.
+            # Mientras el motor y las bombas trabajan, suena la música de preparación
             if dispense_thread.is_alive():
-                self._music_start()
+                self.set_state("preparing_drink", data=coctel)
                 dispense_thread.join()
-                self._music_stop()
             else:
                 dispense_thread.join()
 
@@ -138,19 +163,17 @@ class VoiceAssistant:
 
         self.set_state("idle")
 
-    def _music_start(self):
-        """Arranca la música de espera: parlante local (Pi) y/o navegador (web)."""
-        # Parlante local solo si esta instancia reproduce audio localmente (Pi real).
+    def _music_start(self, mode="idle"):
+        """Arranca la música: parlante local (Pi) y/o navegador (web)."""
         if self.voice.local_playback:
-            self.music.start()
-        # Navegador: avisar al panel web para que reproduzca la música.
+            self.music.play(mode=mode)
         if self.socketio:
-            self.socketio.emit("music_start")
+            self.socketio.emit("music_state", {"mode": mode, "ducked": False})
 
     def _music_stop(self):
         self.music.stop()
         if self.socketio:
-            self.socketio.emit("music_stop")
+            self.socketio.emit("music_state", {"stopped": True})
 
     def _maybe_switch_voice(self, user_text):
         """Si el comando pide cambiar de voz, cicla al siguiente proveedor.
@@ -202,12 +225,19 @@ class VoiceAssistant:
     # ------------------------------------------------------------------
 
     def _voice_loop(self):
-        from wake_word import WakeWordListener
-        from recorder import Recorder
+        try:
+            from wake_word import WakeWordListener
+            from recorder import Recorder
 
-        self.wake = WakeWordListener(mute_check=lambda: self._speaking.is_set()
-                                     or self.voice.is_speaking)
-        self.recorder = Recorder()
+            self.wake = WakeWordListener(mute_check=lambda: self._speaking.is_set()
+                                         or self.voice.is_speaking)
+            self.recorder = Recorder()
+        except (ImportError, ModuleNotFoundError) as e:
+            print(f"[ASSISTANT] PyAudio no disponible ({e}). Modo web / navegador activo.")
+            return
+        except Exception as e:
+            print(f"[ASSISTANT][AVISO] No se pudo iniciar la escucha de voz local: {e}")
+            return
 
         print(f"\nMIA activa — di '{WAKE_KEYWORD_DISPLAY}' para hablarme.\n")
 
@@ -231,7 +261,8 @@ class VoiceAssistant:
                 from stt import transcribe
                 text = transcribe(wav)
                 if not text:
-                    self._speak_blocking("No te escuché bien, ¿me repites?")
+                    from config import obtener_frase_no_entendido
+                    self._speak_blocking(obtener_frase_no_entendido())
                     continue
 
                 # 5. Cerebro + voz + hardware
